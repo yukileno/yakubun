@@ -111,6 +111,7 @@ const dom = {
 
   // ゲーム画面HUD
   hudPlayerName: document.getElementById('hud-player-name'),
+  hudProudSkill: document.getElementById('hud-proud-skill'),
   hudPlayerRank: document.getElementById('hud-player-rank'),
   hudRankNext: document.getElementById('hud-rank-next'),
   hudTotalSolved: document.getElementById('hud-total-solved'),
@@ -144,6 +145,7 @@ const dom = {
 
   // リザルト画面
   resPlayerName: document.getElementById('res-player-name'),
+  resProudSkill: document.getElementById('res-proud-skill'),
   resFinalRank: document.getElementById('res-final-rank'),
   resSessionGain: document.getElementById('res-session-gain'),
   resTotalSolved: document.getElementById('res-total-solved'),
@@ -172,53 +174,189 @@ const dom = {
   myRankCard: document.getElementById('my-rank-card'),
   myRankBadge: document.getElementById('my-rank-badge'),
   myRankName: document.getElementById('my-rank-name'),
-  myRankScore: document.getElementById('my-rank-score')
+  myRankGrade: document.getElementById('my-rank-grade'),
+  myRankScore: document.getElementById('my-rank-score'),
+  myRankSkill: document.getElementById('my-rank-skill'),
+  myRankStats: document.getElementById('my-rank-stats')
 };
 
 // ==========================================================================
-// 1000問Sランク育成計算ロジック
+// 永遠のランク＆スキル進化・限界突破ロジック（1000問上限完全撤廃）
 // ==========================================================================
+const SKILL_PROGRESSION = [
+  { threshold: 10000, name: '宇宙創世スラッガー' },
+  { threshold: 7000,  name: '天衣無縫の極意' },
+  { threshold: 5000,  name: '約分の神' },
+  { threshold: 4000,  name: '銀河系ホームラン王' },
+  { threshold: 3000,  name: '殿堂入りレジェンド' },
+  { threshold: 2500,  name: '超次元の打棒' },
+  { threshold: 2000,  name: '球聖スラッガー' },
+  { threshold: 1800,  name: '威圧感・極' },
+  { threshold: 1500,  name: '約分マスター' },
+  { threshold: 1200,  name: '神速スイング' },
+  { threshold: 1000,  name: '伝説の名球会' },
+  { threshold: 850,   name: '怪物スラッガー' },
+  { threshold: 700,   name: '超アーチスト' },
+  { threshold: 500,   name: '三冠王スラッガー' },
+  { threshold: 400,   name: '安打製造機' },
+  { threshold: 300,   name: '高弾道スラッガー' },
+  { threshold: 200,   name: '満塁男' },
+  { threshold: 150,   name: 'チャンスメーカー' },
+  { threshold: 100,   name: '広角打法' },
+  { threshold: 50,    name: 'アベレージヒッター' },
+  { threshold: 30,    name: '粘り打ち' },
+  { threshold: 10,    name: '選球眼' },
+  { threshold: 0,     name: '期待の新人' }
+];
+
+function getSkillsForSolved(solved) {
+  const skills = new Set();
+  for (const s of SKILL_PROGRESSION) {
+    if (solved >= s.threshold) {
+      skills.add(s.name);
+    }
+  }
+  if (solved >= 10000) {
+    const lv = Math.floor((solved - 10000) / 1000) + 1;
+    skills.add(`神話の超越者 Lv.${lv}`);
+  }
+  return skills;
+}
+
+function getPrimarySkill(solved) {
+  if (solved >= 10000) {
+    const lv = Math.floor((solved - 10000) / 1000) + 1;
+    return `神話の超越者 Lv.${lv}`;
+  }
+  for (const s of SKILL_PROGRESSION) {
+    if (solved >= s.threshold) {
+      return s.name;
+    }
+  }
+  return '期待の新人';
+}
+
 function calcOverallRank(solved) {
-  if (solved >= 1000) return 'S'; // 伝説の三冠王・名球会
-  if (solved >= 500)  return 'A'; // 球界の主砲
-  if (solved >= 200)  return 'B'; // 一軍レギュラー
-  if (solved >= 50)   return 'C'; // 期待の若手
-  return 'D';                     // ルーキー
+  if (solved >= 10000) {
+    const lv = Math.floor((solved - 10000) / 1000) + 1;
+    return `無双 Lv.${lv}`;
+  }
+  if (solved >= 5000) {
+    const stars = Math.floor((solved - 5000) / 500);
+    return stars === 0 ? '神' : `神★${stars}`;
+  }
+  if (solved >= 3000) {
+    const stars = Math.floor((solved - 3000) / 250);
+    return stars === 0 ? '殿堂' : `殿堂★${stars}`;
+  }
+  if (solved >= 2000) {
+    const stars = Math.floor((solved - 2000) / 100);
+    return stars === 0 ? 'SSS' : `SSS★${stars}`;
+  }
+  if (solved >= 1500) {
+    const stars = Math.floor((solved - 1500) / 100);
+    return stars === 0 ? 'SS' : `SS★${stars}`;
+  }
+  if (solved >= 1000) {
+    const stars = Math.floor((solved - 1000) / 100);
+    return stars === 0 ? 'S' : `S★${stars}`;
+  }
+  if (solved >= 500)  return 'A';
+  if (solved >= 200)  return 'B';
+  if (solved >= 50)   return 'C';
+  return 'D';
+}
+
+function getRankClass(rankStr) {
+  if (!rankStr) return 'rank-d';
+  if (rankStr.startsWith('無双')) return 'rank-inf';
+  if (rankStr.startsWith('神')) return 'rank-god';
+  if (rankStr.startsWith('殿堂')) return 'rank-legend';
+  if (rankStr.startsWith('SSS')) return 'rank-sss';
+  if (rankStr.startsWith('SS')) return 'rank-ss';
+  if (rankStr.startsWith('S')) return 'rank-s';
+  if (rankStr.startsWith('A')) return 'rank-a';
+  if (rankStr.startsWith('B')) return 'rank-b';
+  if (rankStr.startsWith('C')) return 'rank-c';
+  return 'rank-d';
 }
 
 function getNextRankHint(solved) {
-  if (solved >= 1000) return '最高峰Sランク到達！伝説の名球会！';
-  if (solved >= 500)  return `Sランクまで あと ${1000 - solved}問`;
-  if (solved >= 200)  return `Aランクまで あと ${500 - solved}問`;
-  if (solved >= 50)   return `Bランクまで あと ${200 - solved}問`;
-  return `Cランクまで あと ${50 - solved}問`;
+  if (solved >= 10000) {
+    const currentLv = Math.floor((solved - 10000) / 1000) + 1;
+    const nextTarget = 10000 + currentLv * 1000;
+    return `無双 Lv.${currentLv + 1} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 5000) {
+    const nextTarget = Math.floor(solved / 500) * 500 + 500;
+    if (nextTarget === 10000) return `無双ランクまで あと ${10000 - solved}問！`;
+    const stars = Math.floor((nextTarget - 5000) / 500);
+    return `神★${stars} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 3000) {
+    const nextTarget = Math.floor(solved / 250) * 250 + 250;
+    if (nextTarget === 5000) return `神ランクまで あと ${5000 - solved}問！`;
+    const stars = Math.floor((nextTarget - 3000) / 250);
+    return `殿堂★${stars} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 2000) {
+    const nextTarget = Math.floor(solved / 100) * 100 + 100;
+    if (nextTarget === 3000) return `殿堂ランクまで あと ${3000 - solved}問！`;
+    const stars = Math.floor((nextTarget - 2000) / 100);
+    return `SSS★${stars} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 1500) {
+    const nextTarget = Math.floor(solved / 100) * 100 + 100;
+    if (nextTarget === 2000) return `SSSランクまで あと ${2000 - solved}問！`;
+    const stars = Math.floor((nextTarget - 1500) / 100);
+    return `SS★${stars} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 1000) {
+    const nextTarget = Math.floor(solved / 100) * 100 + 100;
+    if (nextTarget === 1500) return `SSランクまで あと ${1500 - solved}問！`;
+    const stars = Math.floor((nextTarget - 1000) / 100);
+    return `S★${stars} まで あと ${nextTarget - solved}問！`;
+  }
+  if (solved >= 500)  return `Sランクまで あと ${1000 - solved}問！`;
+  if (solved >= 200)  return `Aランクまで あと ${500 - solved}問！`;
+  if (solved >= 50)   return `Bランクまで あと ${200 - solved}問！`;
+  return `Cランクまで あと ${50 - solved}問！`;
 }
 
 function calcTrajectory(solved) {
-  if (solved >= 700) return 4; // アーチスト
-  if (solved >= 300) return 3; // 高弾道
-  if (solved >= 100) return 2; // 中弾道
-  return 1;                    // グラウンダー
+  if (solved >= 5000) return 7; // 銀河アーチスト
+  if (solved >= 3000) return 6; // 神速弾道
+  if (solved >= 1500) return 5; // 超アーチスト
+  if (solved >= 700)  return 4; // アーチスト
+  if (solved >= 300)  return 3; // 高弾道
+  if (solved >= 100)  return 2; // 中弾道
+  return 1;                     // グラウンダー
 }
 
 function getTrajectoryName(traj) {
-  if (traj >= 4) return 'アーチスト';
+  if (traj >= 7) return '銀河アーチスト';
+  if (traj === 6) return '神速弾道';
+  if (traj === 5) return '超アーチスト';
+  if (traj === 4) return 'アーチスト';
   if (traj === 3) return '高弾道';
   if (traj === 2) return '中弾道';
   return 'グラウンダー';
 }
 
 function calcPower(hr) {
-  // 700本のホームランで99到達
-  return Math.min(99, Math.floor(40 + (hr / 700) * 59));
+  // 700本のホームランで99到達、その後も青天井（限界突破）！
+  return Math.floor(40 + (hr / 700) * 59);
 }
 
 function calcMeet(solved) {
-  // 1000問正解で99到達
-  return Math.min(99, Math.floor(40 + (solved / 1000) * 59));
+  // 1000問正解で99到達、その後も青天井（限界突破）！
+  return Math.floor(40 + (solved / 1000) * 59);
 }
 
 function getGrade(val) {
+  if (val >= 160) return '神';
+  if (val >= 130) return 'SSS';
+  if (val >= 100) return 'SS';
   if (val >= 90) return 'S';
   if (val >= 80) return 'A';
   if (val >= 70) return 'B';
@@ -267,7 +405,7 @@ function checkTitleSavedData() {
       dom.resumeName.textContent = `${data.name} 選手`;
       const rank = calcOverallRank(data.totalSolved);
       dom.resumeRank.textContent = rank;
-      dom.resumeRank.className = `resume-badge rank-${rank.toLowerCase()}`;
+      dom.resumeRank.className = `resume-badge ${getRankClass(rank)}`;
       dom.resumeSolvedCount.textContent = data.totalSolved;
       dom.playerNameInput.value = data.name;
       return;
@@ -312,8 +450,12 @@ function updateHud() {
 
   const rank = calcOverallRank(state.totalSolved);
   dom.hudPlayerRank.textContent = rank;
-  dom.hudPlayerRank.className = `player-rank-badge rank-${rank.toLowerCase()}`;
+  dom.hudPlayerRank.className = `player-rank-badge ${getRankClass(rank)}`;
   dom.hudRankNext.textContent = getNextRankHint(state.totalSolved);
+
+  if (dom.hudProudSkill) {
+    dom.hudProudSkill.textContent = `【${getPrimarySkill(state.totalSolved)}】`;
+  }
 
   dom.hudTotalSolved.textContent = state.totalSolved;
   dom.hudSessionGain.textContent = `(+${state.sessionGain})`;
@@ -348,13 +490,13 @@ async function startTraining(playerName) {
     state.totalHomeruns = localData.totalHomeruns || 0;
     state.totalHits = localData.totalHits || 0;
     state.totalStrikeouts = localData.totalStrikeouts || 0;
-    state.abilities = new Set(localData.abilities || ['期待の新人']);
+    state.abilities = getSkillsForSolved(state.totalSolved);
   } else {
     state.totalSolved = 0;
     state.totalHomeruns = 0;
     state.totalHits = 0;
     state.totalStrikeouts = 0;
-    state.abilities = new Set(['期待の新人']);
+    state.abilities = getSkillsForSolved(0);
   }
 
   // 2. スプレッドシートから最新データの同期確認（オンライン時）
@@ -365,12 +507,16 @@ async function startTraining(playerName) {
         // スプレッドシートの解いた問数の方が進んでいればマージ
         if (ranking.myRank.score > state.totalSolved) {
           state.totalSolved = ranking.myRank.score;
+          state.abilities = getSkillsForSolved(state.totalSolved);
         }
       }
     } catch (e) {
       console.warn("GAS load fallback to local:", e);
     }
   }
+
+  if (state.totalHomeruns >= 100) state.abilities.add('超アーチスト');
+  if (state.totalHomeruns >= 300) state.abilities.add('世界のホームラン王');
 
   state.sessionGain = 0;
   state.playing = true;
@@ -506,9 +652,10 @@ function handleCorrectDivisor(divisor, curN, curD) {
     state.sessionGain++;
     state.consecutiveHits++;
 
-    // 特殊能力習得判定
-    if (state.totalSolved >= 1000) state.abilities.add('伝説の名球会');
-    if (state.totalSolved >= 500)  state.abilities.add('三冠王スラッガー');
+    // 特殊能力習得判定（全スキル動的アップデート）
+    state.abilities = getSkillsForSolved(state.totalSolved);
+    if (state.totalHomeruns >= 100) state.abilities.add('超アーチスト');
+    if (state.totalHomeruns >= 300) state.abilities.add('世界のホームラン王');
     if (state.consecutiveHits >= 10) state.abilities.add('安打製造機');
 
     // ★ ユーザー様ご要望：「約分しきったあとの分数をしっかり表示する！」
@@ -664,7 +811,11 @@ function showResult() {
 
   const rank = calcOverallRank(state.totalSolved);
   dom.resFinalRank.textContent = rank;
-  dom.resFinalRank.className = `final-rank-circle rank-${rank.toLowerCase()}`;
+  dom.resFinalRank.className = `final-rank-circle ${getRankClass(rank)}`;
+
+  if (dom.resProudSkill) {
+    dom.resProudSkill.textContent = `🌟 【${getPrimarySkill(state.totalSolved)}】`;
+  }
 
   dom.resSessionGain.textContent = `+${state.sessionGain} 問`;
   dom.resTotalSolved.textContent = `${state.totalSolved} 問`;
@@ -722,7 +873,7 @@ async function sendScoreToGAS() {
   }
 }
 
-// ランキング表示
+// ランキング表示（自慢のスキルと能力値を誇示するリッチカード一覧）
 async function openRankingModal() {
   showScreen('ranking');
   dom.rankingOfflineAlert.classList.add('hide');
@@ -741,12 +892,12 @@ async function openRankingModal() {
     dom.rankingLoading.classList.add('hide');
 
     if (!list || list.length === 0) {
-      dom.rankingTbody.innerHTML = '<tr><td colspan="3">まだ記録がありません。一番乗りで記録しよう！</td></tr>';
+      dom.rankingTbody.innerHTML = '<tr><td colspan="3" class="ranking-loading">まだ記録がありません。一番乗りで記録しよう！</td></tr>';
       return;
     }
 
     let rowsHtml = '';
-    list.slice(0, 15).forEach((item, index) => {
+    list.slice(0, 50).forEach((item, index) => {
       const rank = index + 1;
       let topClass = '';
       if (rank === 1) topClass = 'top-1';
@@ -754,11 +905,32 @@ async function openRankingModal() {
       else if (rank === 3) topClass = 'top-3';
 
       const rankBadge = rank === 1 ? '🥇 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : `${rank}`;
+      const solved = Number(item.score) || 0;
+      const overallRank = calcOverallRank(solved);
+      const rankClass = getRankClass(overallRank);
+      const primarySkill = getPrimarySkill(solved);
+      const traj = calcTrajectory(solved);
+      const trajName = getTrajectoryName(traj);
+      const meetVal = calcMeet(solved);
+      const meetGrade = getGrade(meetVal);
+      const estHr = Math.floor(solved * 0.7);
+      const powerVal = calcPower(estHr);
+      const powerGrade = getGrade(powerVal);
+
       rowsHtml += `
-        <tr class="${topClass}">
-          <td>${rankBadge}</td>
-          <td>${escapeHtml(item.name)}</td>
-          <td><strong>${item.score}</strong> 問</td>
+        <tr class="${topClass} ranking-row-card">
+          <td class="col-rank">${rankBadge}</td>
+          <td class="col-player">
+            <div class="rp-header">
+              <span class="rp-name">${escapeHtml(item.name)}</span>
+              <span class="player-rank-badge ${rankClass}">${overallRank}</span>
+            </div>
+            <div class="rp-skill-line">
+              <span class="primary-skill-tag">🌟 【${escapeHtml(primarySkill)}】</span>
+              <span class="rp-stats">弾道:${trajName} M:${meetGrade}${meetVal} P:${powerGrade}${powerVal}</span>
+            </div>
+          </td>
+          <td class="col-score"><strong>${solved.toLocaleString()}</strong> 問</td>
         </tr>
       `;
     });
@@ -766,13 +938,31 @@ async function openRankingModal() {
 
     if (list.myRank) {
       dom.myRankCard.classList.remove('hide');
+      const mySolved = state.totalSolved;
+      const myRankStr = calcOverallRank(mySolved);
+      const myRankClass = getRankClass(myRankStr);
+      const myPrimarySkill = getPrimarySkill(mySolved);
+      const myTraj = calcTrajectory(mySolved);
+      const myMeet = calcMeet(mySolved);
+      const myPower = calcPower(state.totalHomeruns);
+
       dom.myRankBadge.textContent = `あなた: 第 ${list.myRank.rank} 位`;
       dom.myRankName.textContent = escapeHtml(list.myRank.name);
-      dom.myRankScore.textContent = `${list.myRank.score} 問`;
+      if (dom.myRankGrade) {
+        dom.myRankGrade.textContent = myRankStr;
+        dom.myRankGrade.className = `player-rank-badge ${myRankClass}`;
+      }
+      dom.myRankScore.textContent = `${mySolved.toLocaleString()} 問`;
+      if (dom.myRankSkill) {
+        dom.myRankSkill.textContent = `🌟 【${myPrimarySkill}】`;
+      }
+      if (dom.myRankStats) {
+        dom.myRankStats.textContent = `弾道: ${getTrajectoryName(myTraj)} / ミート: ${getGrade(myMeet)} ${myMeet} / パワー: ${getGrade(myPower)} ${myPower} (本塁打: ${state.totalHomeruns}本)`;
+      }
     }
   } catch (err) {
     dom.rankingLoading.classList.add('hide');
-    dom.rankingTbody.innerHTML = `<tr><td colspan="3">ランキングの取得に失敗しました (${err.message})</td></tr>`;
+    dom.rankingTbody.innerHTML = `<tr><td colspan="3" class="ranking-loading">ランキングの取得に失敗しました (${err.message})</td></tr>`;
   }
 }
 

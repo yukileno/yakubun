@@ -109,7 +109,8 @@
           </div>
 
           <div class="howto-tips">
-            <p>🏆 <strong>1000問でSランク！</strong>：50問でCランク、200問でBランク、500問でAランク、<strong>1000問達成で最高峰のSランク（伝説の三冠王）</strong>へ到達！</p>
+            <p>🏆 <strong>果てなきランクアップ＆スキル習得！</strong>：1000問でSランク到達後も、S★1〜★4、SS、SSS、殿堂、神、無双∞へと永遠にランクが進化！新しいスキル（特殊能力）を次々と獲得！</p>
+            <p>🌟 <strong>全国ランキングでスキルを自慢！</strong>：全国ランキングには、あなたのランクバッジ・自慢のスキル・能力値が誇らしげに掲載されます！ライバルに見せつけよう！</p>
             <p>💾 <strong>いつでも休憩セーブ</strong>：右上の「きゅうけい」ボタンで、いつでもスプレッドシートに上書きセーブして休憩できるよ！</p>
             <p>⚠️ <strong>3ストライクで三振チェンジ</strong>：割り切れない数を選ぶと空振り（0.8秒バット構え直し）。3回間違えると三振で次の問題へ！適当な連打は通じないぞ！</p>
           </div>
@@ -127,11 +128,14 @@
 
       <!-- 上部スコアボード＆選手能力バー -->
       <div class="scoreboard-bar">
-        <!-- 選手名＆ランク -->
+        <!-- 選手名＆ランク＆自慢スキル -->
         <div class="player-identity-box">
           <div class="player-rank-badge" id="hud-player-rank">D</div>
           <div class="player-name-wrap">
-            <span class="hud-player-name" id="hud-player-name">選手名</span>
+            <div class="player-name-skill-row">
+              <span class="hud-player-name" id="hud-player-name">選手名</span>
+              <span class="hud-proud-skill" id="hud-proud-skill">【期待の新人】</span>
+            </div>
             <span class="hud-rank-next" id="hud-rank-next">次のランクまで あと 50問</span>
           </div>
         </div>
@@ -255,7 +259,10 @@
           <div class="result-title-group">
             <div class="game-set-badge">PROGRESS SAVED</div>
             <h2 class="result-title">きゅうけい・選手データセーブ完了</h2>
-            <div class="result-player-name" id="res-player-name">選手名（固定）</div>
+            <div class="result-player-name-row">
+              <span class="result-player-name" id="res-player-name">選手名（固定）</span>
+              <span class="primary-skill-tag" id="res-proud-skill">🌟 【期待の新人】</span>
+            </div>
           </div>
           <div class="final-rank-circle" id="res-final-rank">D</div>
         </div>
@@ -271,7 +278,7 @@
             <span class="p-val highlight-gold" id="res-total-solved">0 問</span>
           </div>
           <div class="progress-col">
-            <span class="p-lbl">次のランクまで</span>
+            <span class="p-lbl">次の目標まで</span>
             <span class="p-val" id="res-next-remain">あと 50 問</span>
           </div>
         </div>
@@ -303,7 +310,7 @@
           </div>
 
           <div class="special-abilities-wrap">
-            <span class="skills-label">獲得称号・能力：</span>
+            <span class="skills-label">獲得した能力・称号（全スキル）：</span>
             <div class="skills-tags" id="res-special-skills"></div>
           </div>
         </div>
@@ -320,7 +327,7 @@
             <span class="btn-icon">⚾</span> つづけて練習する！
           </button>
           <button id="btn-result-ranking" class="btn btn-secondary">
-            <span class="btn-icon">🏆</span> 全国ランキングを見る
+            <span class="btn-icon">🏆</span> 全国ランキングで自慢する！
           </button>
           <button id="btn-back-title" class="btn btn-outline">
             <span class="btn-icon">🏠</span> タイトルへもどる
@@ -329,36 +336,51 @@
       </div>
     </section>
 
-    <!-- ==================== 5. ランキングモーダル ==================== -->
+    <!-- ==================== 5. ランキングモーダル（自慢スタジアム） ==================== -->
     <section id="screen-ranking" class="screen hide">
       <div class="modal-card ranking-modal">
         <div class="ranking-header">
-          <h2>🏆 全国スラッガーランキング（通算問数）</h2>
-          <div class="ranking-sub">（統合スプレッドシート集中管理記録）</div>
+          <h2>🏆 全国スラッガーランキング</h2>
+          <div class="ranking-sub">全国のライバルに自慢のスキルと能力を見せつけろ！</div>
         </div>
 
         <div id="ranking-offline-alert" class="offline-alert hide">
           📴 オフラインのためランキングを表示できません。インターネット接続を確認してください。
         </div>
 
+        <!-- あなたの自慢カード（ランキング上部に特大表示） -->
+        <div id="my-rank-card" class="my-rank-card hide">
+          <div class="my-rank-top">
+            <span class="my-rank-badge" id="my-rank-badge">あなた: 第 - 位</span>
+            <div class="my-rank-name-wrap">
+              <span id="my-rank-name">--</span>
+              <span class="player-rank-badge" id="my-rank-grade">D</span>
+            </div>
+            <div class="my-rank-score-wrap">
+              <span class="my-rank-score" id="my-rank-score">0 問</span>
+            </div>
+          </div>
+          <div class="my-rank-skill-row">
+            <span class="skill-intro-lbl">🌟 あなたの自慢スキル:</span>
+            <span class="primary-skill-tag" id="my-rank-skill">【期待の新人】</span>
+          </div>
+          <div class="my-rank-stats-row" id="my-rank-stats">
+            弾道: グラウンダー / ミート: E 40 / パワー: E 40
+          </div>
+        </div>
+
         <div class="ranking-list-wrap">
           <table class="ranking-table">
             <thead>
               <tr>
-                <th>順位</th>
-                <th>せんしゅめい</th>
-                <th>通算せいかい問数</th>
+                <th style="width: 14%;">順位</th>
+                <th style="width: 60%;">選手 ＆ 自慢のスキル</th>
+                <th style="width: 26%; text-align: right;">通算問数</th>
               </tr>
             </thead>
             <tbody id="ranking-tbody"></tbody>
           </table>
           <div id="ranking-loading" class="ranking-loading">読み込み中...</div>
-        </div>
-
-        <div id="my-rank-card" class="my-rank-card hide">
-          <span class="my-rank-badge" id="my-rank-badge">あなた: 第 - 位</span>
-          <span class="my-rank-name" id="my-rank-name">--</span>
-          <span class="my-rank-score" id="my-rank-score">0 問</span>
         </div>
 
         <button id="btn-ranking-close" class="btn btn-primary">とじる</button>
