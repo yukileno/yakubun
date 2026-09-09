@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>プロベースボール・スピリッツ：約分スラッガー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- アプリ本体（16:9固定コンテナ） -->
+  <div id="app-container">
+
+    <!-- ⚡ フィーバー用GPU高速オーバーレイ（親コンテナに重いフィルタはかけない） -->
+    <div id="fever-overlay" class="fever-screen-glow"></div>
+
+    <!-- ホームラン演出カットイン -->
+    <div id="homerun-cutin" class="homerun-modal hide">
+      <div class="homerun-content">
+        <img src="assets/homerun_blast.jpg" alt="ホームラン！" class="homerun-img">
+        <div class="homerun-banner">
+          <div class="homerun-text-sub">JACKPOT SLAM!</div>
+          <div class="homerun-text-main">特大ホームラン！！</div>
+          <div class="homerun-bonus-pts">+<span id="cutin-pts">300</span> PTS</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 紙吹雪用Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- ==================== 1. タイトル画面 ==================== -->
+    <section id="screen-title" class="screen active">
+      <div class="title-bg-wrapper">
+        <img src="assets/bg_stadium.jpg" alt="スタジアム" class="title-bg">
+        <div class="title-vignette"></div>
+      </div>
+
+      <div class="title-content">
+        <div class="game-badge">小学5年生 算数「約分」特訓ゲーム</div>
+        <h1 class="game-logo">
+          <span class="logo-sub">PRO BASEBALL SPIRITS</span>
+          <span class="logo-main">約分スラッガー</span>
+          <span class="logo-tag">〜目指せ！三冠王ホームランバッター〜</span>
+        </h1>
+
+        <!-- 児童ニックネーム入力 -->
+        <div class="player-input-card">
+          <div class="input-header">
+            <span class="uniform-icon">⚾</span>
+            <label for="player-name">せんしゅめい（なまえ）をいれてね</label>
+          </div>
+          <input type="text" id="player-name" maxlength="10" placeholder="なまえ（10文字まで）" autocomplete="off">
+          <div class="name-hint">※ランキングにけいさいされるよ！</div>
+        </div>
+
+        <!-- ボタン群 -->
+        <div class="title-buttons">
+          <button id="btn-start" class="btn btn-primary btn-pulse">
+            <span class="btn-icon">⚾</span> プレイボール！（スタート）
+          </button>
+          <button id="btn-title-ranking" class="btn btn-secondary">
+            <span class="btn-icon">🏆</span> 全国ランキング
+          </button>
+          <button id="btn-how-to" class="btn btn-info">
+            <span class="btn-icon">📖</span> あそびかた
+          </button>
+        </div>
+
+        <!-- 音声ミュートトグル -->
+        <button id="btn-mute" class="btn-mute" title="おとのON/OFF">🔊</button>
+      </div>
+    </section>
+
+    <!-- ==================== 2. あそびかた画面 ==================== -->
+    <section id="screen-howto" class="screen hide">
+      <div class="modal-card">
+        <h2 class="modal-title">⚾ あそびかた＆約分のコツ</h2>
+        <div class="howto-body">
+          <div class="howto-rule-box">
+            <h3>🎯 ルール</h3>
+            <p>ピッチャーが投げてくる分数を、<strong>分母と分子を同じ数（公約数）でわって約分</strong>しよう！</p>
+          </div>
+
+          <div class="howto-grid">
+            <div class="howto-card card-homerun">
+              <div class="howto-badge gold">かず方式</div>
+              <h4>🌟 特大ホームラン！（一発約分）</h4>
+              <p>最大公約数で一気にできるだけ小さい分数（既約分数）に約分すると<strong>特大ホームラン</strong>！大量得点＋チャンス突入！</p>
+              <div class="howto-formula">18/24 ➔ <strong>3/4</strong> (÷6) 💥</div>
+            </div>
+            <div class="howto-card card-hit">
+              <div class="howto-badge blue">りこ方式</div>
+              <h4>⚾ クリーンヒット！（だんかい約分）</h4>
+              <p>2や3で割ってもOK！ヒットを打って出塁し、<strong>そのままもう一度約分</strong>してホームインを目指せるよ！</p>
+              <div class="howto-formula">18/24 ➔ <strong>9/12</strong> (÷2) ➔ <strong>3/4</strong> (÷3) 🏃</div>
+            </div>
+          </div>
+
+          <div class="howto-tips">
+            <p>⚠️ <strong>注意</strong>：約分できない数字を入れると「空振り三振」で<strong>のこり時間がマイナス3秒</strong>！</p>
+            <p>🔥 <strong>チャンス（フィーバー）</strong>：連続正解で全打席得点2倍！</p>
+          </div>
+        </div>
+        <button id="btn-howto-close" class="btn btn-primary">わかった！（もどる）</button>
+      </div>
+    </section>
+
+    <!-- ==================== 3. 試合（ゲーム）画面 ==================== -->
+    <section id="screen-game" class="screen hide">
+      <!-- スタジアム・対決背景 -->
+      <div class="game-bg-wrapper">
+        <img src="assets/pitcher_duel.jpg" alt="ピッチャー対決" class="game-bg">
+        <div class="game-bg-overlay"></div>
+      </div>
+
+      <!-- 上部スコアボード・インフォメーションバー -->
+      <div class="scoreboard-bar">
+        <!-- 試合状況（イニング・走者・BSO） -->
+        <div class="stadium-bso">
+          <div class="inning-display"><span id="inning-text">9回裏</span> <span class="score-diff">チャンス!</span></div>
+          <div class="runner-bases">
+            <div id="base-2" class="base base-2"></div>
+            <div id="base-3" class="base base-3"></div>
+            <div id="base-1" class="base base-1"></div>
+          </div>
+        </div>
+
+        <!-- タイマー表示（0秒強制終了） -->
+        <div class="timer-box" id="timer-box">
+          <span class="timer-label">TIME</span>
+          <span id="time-display" class="time-value">60</span>
+        </div>
+
+        <!-- スコア・コンボ・フィーバーゲージ -->
+        <div class="score-gauge-box">
+          <div class="score-row">
+            <div class="score-item">
+              <span class="label">得点</span>
+              <span id="score-display" class="value highlight-score">0</span>
+            </div>
+            <div class="score-item combo-item">
+              <span class="label">連打</span>
+              <span id="combo-display" class="value combo-val">0</span>
+            </div>
+          </div>
+
+          <!-- フィーバーゲージ（得点圏チャンス） -->
+          <div class="fever-bar-wrap">
+            <div class="fever-bar-label">得点圏 CHANCE GAUGE</div>
+            <div class="fever-bar-track">
+              <div id="fever-progress" class="fever-progress" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 実況アナウンステロップ -->
+      <div id="announcer-box" class="announcer-box">
+        <span class="announcer-icon">📢</span>
+        <span id="announcer-text" class="announcer-text">さあ打席に立ちました！ピッチャー第一球を投げます！</span>
+      </div>
+
+      <!-- 中央：打席・問題表示ゾーン -->
+      <div class="battle-zone">
+        <!-- ピッチャーの投球問題分数 -->
+        <div class="pitch-ball-card">
+          <div class="pitch-label">
+            <span class="pitch-speed" id="pitch-speed">148 km/h</span>
+            <span class="pitch-type" id="pitch-type">約分ボール</span>
+          </div>
+          <div class="fraction-box origin-fraction">
+            <div class="fraction-num" id="origin-num">18</div>
+            <div class="fraction-line"></div>
+            <div class="fraction-den" id="origin-den">24</div>
+          </div>
+        </div>
+
+        <!-- 矢印・バットインパクトサイン -->
+        <div class="fraction-vs-sign">
+          <div class="yakubun-arrow">➔</div>
+          <div class="yakubun-status-badge" id="yakubun-status-badge">約分せよ！</div>
+        </div>
+
+        <!-- バッターの解答入力分数（分子・分母ポチポチスロット） -->
+        <div class="bat-answer-card">
+          <div class="slot-instruction">ポチポチ数字をいれよう</div>
+          <div class="fraction-box answer-fraction">
+            <!-- 分子入力枠 -->
+            <button id="slot-num" class="fraction-slot active" data-target="num">
+              <span class="slot-num-val" id="val-num">?</span>
+            </button>
+            <div class="fraction-line"></div>
+            <!-- 分母入力枠 -->
+            <button id="slot-den" class="fraction-slot" data-target="den">
+              <span class="slot-den-val" id="val-den">?</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ヒント・途中約分ナビゲーション -->
+      <div id="step-hint-box" class="step-hint-box hide">
+        <span id="step-hint-text">ナイスヒット！まだ割れるぞ、もう一度約分してホームインだ！</span>
+      </div>
+
+      <!-- 下部：テンキー＆決定・消去コントローラー -->
+      <div class="keypad-zone">
+        <div class="keypad-grid">
+          <button class="key-btn num-key" data-num="1">1</button>
+          <button class="key-btn num-key" data-num="2">2</button>
+          <button class="key-btn num-key" data-num="3">3</button>
+          <button class="key-btn num-key" data-num="4">4</button>
+          <button class="key-btn num-key" data-num="5">5</button>
+          <button class="key-btn num-key" data-num="6">6</button>
+          <button class="key-btn num-key" data-num="7">7</button>
+          <button class="key-btn num-key" data-num="8">8</button>
+          <button class="key-btn num-key" data-num="9">9</button>
+          <button class="key-btn num-key" data-num="0">0</button>
+          <button id="btn-clear" class="key-btn action-key clear-key">
+            <span>⌫ けす</span>
+          </button>
+          <button id="btn-submit" class="key-btn action-key submit-key">
+            <span>⚾ スイング！（決定）</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 4. リザルト画面 ==================== -->
+    <section id="screen-result" class="screen hide">
+      <div class="result-card">
+        <div class="result-header">
+          <img src="assets/trophy_mvp.jpg" alt="MVPトロフィー" class="result-trophy-img">
+          <div class="result-title-group">
+            <div class="game-set-badge">GAME SET</div>
+            <h2 class="result-title">試合終了・個人成績発表</h2>
+            <div class="result-player-name" id="res-player-name">せんしゅめい</div>
+          </div>
+        </div>
+
+        <!-- 成績表スコアボード -->
+        <div class="result-stats-board">
+          <div class="res-stat-col">
+            <span class="stat-label">トータル得点</span>
+            <span class="stat-val highlight" id="res-score">0</span>
+          </div>
+          <div class="res-stat-col">
+            <span class="stat-label">本塁打（一発約分）</span>
+            <span class="stat-val" id="res-homeruns">0 <small>本</small></span>
+          </div>
+          <div class="res-stat-col">
+            <span class="stat-label">安打（だんかい約分）</span>
+            <span class="stat-val" id="res-hits">0 <small>本</small></span>
+          </div>
+          <div class="res-stat-col">
+            <span class="stat-label">最大連打コンボ</span>
+            <span class="stat-val" id="res-max-combo">0</span>
+          </div>
+        </div>
+
+        <!-- 獲得称号 -->
+        <div class="result-title-award">
+          <span class="award-label">👑 獲得称号</span>
+          <div class="award-title" id="res-award-title">熱血ルーキースラッガー</div>
+          <div class="award-desc" id="res-award-desc">約分の基本をマスターした期待の新人！</div>
+        </div>
+
+        <!-- スプレッドシートランキング登録状況 -->
+        <div id="register-status" class="register-status-box">
+          <span class="status-icon">📡</span>
+          <span id="register-msg">スプレッドシートに記録中...</span>
+        </div>
+
+        <!-- ボタン群 -->
+        <div class="result-buttons">
+          <button id="btn-retry" class="btn btn-primary btn-pulse">
+            <span class="btn-icon">🔄</span> もう一試合たたかう！
+          </button>
+          <button id="btn-result-ranking" class="btn btn-secondary">
+            <span class="btn-icon">🏆</span> 全国ランキングを見る
+          </button>
+          <button id="btn-back-title" class="btn btn-outline">
+            <span class="btn-icon">🏠</span> タイトルへ
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 5. ランキングモーダル画面 ==================== -->
+    <section id="screen-ranking" class="screen hide">
+      <div class="modal-card ranking-modal">
+        <div class="ranking-header">
+          <h2>🏆 全国スラッガーランキング</h2>
+          <div class="ranking-sub">（統合スプレッドシート集中管理記録）</div>
+        </div>
+
+        <!-- オフライン警告バナー -->
+        <div id="ranking-offline-alert" class="offline-alert hide">
+          📴 オフラインのためランキングを表示できません。インターネット接続を確認してください。
+        </div>
+
+        <!-- ランキングリスト -->
+        <div class="ranking-list-wrap">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th>順位</th>
+                <th>せんしゅめい</th>
+                <th>得点</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-tbody">
+              <!-- JSで動的生成 -->
+            </tbody>
+          </table>
+          <div id="ranking-loading" class="ranking-loading">読み込み中...</div>
+        </div>
+
+        <!-- 自分の順位バー -->
+        <div id="my-rank-card" class="my-rank-card hide">
+          <span class="my-rank-badge" id="my-rank-badge">あなた: 第 - 位</span>
+          <span class="my-rank-name" id="my-rank-name">--</span>
+          <span class="my-rank-score" id="my-rank-score">0 PTS</span>
+        </div>
+
+        <button id="btn-ranking-close" class="btn btn-primary">とじる</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="sound.js"></script>
+  <script src="api.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
