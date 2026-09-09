@@ -1,11 +1,11 @@
 /* ==========================================================================
-   プロベースボール・スピリッツ：約分スラッガー (style.css)
-   16:9 横画面固定 / タブレット最適化 (48px+ タップ領域) / 左右分割レイアウト
+   プロベースボール・スピリッツ：約分スラッガー育成ロード (style.css)
+   16:9 横画面固定 / タブレット最適化 (48px+ タップ領域) / 選手育成・連打防止
    ========================================================================== */
 
 :root {
   --bg-dark: #0a1118;
-  --bg-card: rgba(14, 25, 42, 0.92);
+  --bg-card: rgba(14, 25, 42, 0.94);
   --gold: #ffd23f;
   --gold-glow: rgba(255, 210, 63, 0.4);
   --accent-red: #ff334b;
@@ -16,6 +16,13 @@
   --text-sub: #b0c4de;
   --font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', 'Segoe UI', sans-serif;
   --font-digital: 'Impact', 'Arial Black', sans-serif;
+
+  /* 選手ランクカラー */
+  --rank-s: #f59e0b;
+  --rank-a: #ec4899;
+  --rank-b: #ef4444;
+  --rank-c: #3b82f6;
+  --rank-d: #64748b;
 }
 
 * {
@@ -43,15 +50,15 @@ html, body {
 #app-container {
   position: relative;
   width: 100vw;
-  height: 56.25vw; /* 16:9 */
+  height: 56.25vw;
   max-height: 100vh;
-  max-width: 177.78vh; /* 16:9 */
+  max-width: 177.78vh;
   background: var(--bg-dark);
   overflow: hidden;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
 }
 
-/* ⚡ フィーバー用GPU高速オーバーレイ（親コンテナに重いフィルタをかけずopacityのみ変化） */
+/* ⚡ フィーバーオーバーレイ */
 .fever-screen-glow {
   position: absolute;
   top: 0;
@@ -103,19 +110,11 @@ html, body {
   z-index: 10;
 }
 
-.screen.active {
-  display: flex;
-}
+.screen.active { display: flex; }
+.hide { display: none !important; }
 
-.hide {
-  display: none !important;
-}
-
-/* 揺れアニメーション */
-.shake {
-  animation: shakeAnim 0.35s ease;
-}
-
+/* 揺れ演出 */
+.shake { animation: shakeAnim 0.35s ease; }
 @keyframes shakeAnim {
   0%, 100% { transform: translate(0, 0); }
   20%, 60% { transform: translate(-8px, 4px); }
@@ -176,7 +175,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .logo-sub {
@@ -188,7 +187,7 @@ html, body {
 }
 
 .logo-main {
-  font-size: 3.3rem;
+  font-size: 3.2rem;
   font-weight: 900;
   letter-spacing: 3px;
   background: linear-gradient(180deg, #ffffff 0%, #ffd23f 50%, #ff7700 100%);
@@ -199,16 +198,14 @@ html, body {
 }
 
 .logo-tag {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #fff;
   background: rgba(255, 51, 75, 0.85);
   padding: 3px 16px;
   border-radius: 12px;
   font-weight: bold;
-  letter-spacing: 1px;
 }
 
-/* 選手名入力 */
 .player-input-card {
   background: var(--bg-card);
   border: 2px solid rgba(255, 210, 63, 0.5);
@@ -255,7 +252,6 @@ html, body {
   margin-top: 4px;
 }
 
-/* タイトルボタン */
 .title-buttons {
   display: flex;
   gap: 12px;
@@ -280,9 +276,7 @@ html, body {
   touch-action: manipulation;
 }
 
-.btn:active {
-  transform: scale(0.96);
-}
+.btn:active { transform: scale(0.96); }
 
 .btn-primary {
   background: linear-gradient(180deg, #ff9f1c 0%, #ff3838 100%);
@@ -291,10 +285,7 @@ html, body {
   box-shadow: 0 4px 15px rgba(255, 56, 56, 0.4);
 }
 
-.btn-pulse {
-  animation: btnPulseAnim 1.6s infinite alternate;
-}
-
+.btn-pulse { animation: btnPulseAnim 1.6s infinite alternate; }
 @keyframes btnPulseAnim {
   0% { transform: scale(1); }
   100% { transform: scale(1.04); }
@@ -330,7 +321,7 @@ html, body {
 }
 
 /* ==========================================================================
-   2. 試合（ゲーム）画面
+   2. 試合（育成ゲーム）画面
    ========================================================================== */
 .game-bg-wrapper {
   position: absolute;
@@ -356,15 +347,15 @@ html, body {
   background: linear-gradient(180deg, rgba(8, 14, 22, 0.88) 0%, rgba(8, 14, 22, 0.6) 50%, rgba(8, 14, 22, 0.94) 100%);
 }
 
-/* 上部スコアボードバー */
+/* 上部スコアボード＆選手能力バー */
 .scoreboard-bar {
   position: absolute;
   top: 8px;
   left: 10px;
   right: 10px;
-  height: 56px;
+  height: 60px;
   z-index: 15;
-  background: rgba(10, 18, 30, 0.94);
+  background: rgba(10, 18, 30, 0.95);
   border: 1.5px solid rgba(255, 210, 63, 0.6);
   border-radius: 8px;
   display: flex;
@@ -374,25 +365,70 @@ html, body {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
 }
 
-.stadium-bso {
+/* 打席数表示 */
+.at-bat-box {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.inning-display {
+.at-bat-label {
+  font-size: 0.75rem;
+  color: var(--text-sub);
+}
+
+.at-bat-value {
   font-family: var(--font-digital);
-  font-size: 1.2rem;
+  font-size: 1.35rem;
+  color: #ffffff;
+}
+
+.at-bat-value strong {
+  font-size: 1.7rem;
   color: var(--gold);
 }
 
-.score-diff {
-  font-size: 0.8rem;
-  background: var(--accent-red);
-  color: #fff;
-  padding: 2px 7px;
-  border-radius: 5px;
-  font-weight: bold;
+/* ストライク＆走者 */
+.stadium-count-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.strike-lights {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+}
+
+.strike-label {
+  font-family: var(--font-digital);
+  font-size: 1.1rem;
+  color: var(--gold);
+  margin-right: 2px;
+}
+
+.strike-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #222;
+  border: 1.5px solid #555;
+  transition: all 0.2s;
+}
+
+.strike-dot.active {
+  background: #ffcc00;
+  border-color: #fff;
+  box-shadow: 0 0 10px #ffcc00;
 }
 
 .runner-bases {
@@ -420,119 +456,75 @@ html, body {
   box-shadow: 0 0 6px var(--gold);
 }
 
-/* タイマー */
-.timer-box {
+/* リアルタイム選手パラメータHUD */
+.player-stat-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 3px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 10px;
 }
 
-.timer-label {
-  font-size: 0.8rem;
-  color: var(--text-sub);
-  font-weight: bold;
-}
-
-.time-value {
+.player-rank-badge {
   font-family: var(--font-digital);
-  font-size: 1.9rem;
-  color: #00ffaa;
-  min-width: 42px;
-  text-align: center;
-}
-
-.timer-warning {
-  border-color: var(--accent-red);
-  animation: timerWarningAnim 0.6s infinite alternate;
-}
-
-.timer-warning .time-value {
-  color: var(--accent-red);
-}
-
-@keyframes timerWarningAnim {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.05); }
-}
-
-/* スコア＆コンボ */
-.score-gauge-box {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.score-row {
+  font-size: 1.6rem;
+  font-weight: 900;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  background: var(--rank-d);
+  color: #fff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  transition: all 0.3s;
 }
 
-.score-item {
+.player-rank-badge.rank-s { background: var(--rank-s); box-shadow: 0 0 15px var(--gold); }
+.player-rank-badge.rank-a { background: var(--rank-a); }
+.player-rank-badge.rank-b { background: var(--rank-b); }
+.player-rank-badge.rank-c { background: var(--rank-c); }
+.player-rank-badge.rank-d { background: var(--rank-d); }
+
+.stat-capsules {
   display: flex;
-  align-items: baseline;
-  gap: 5px;
+  gap: 6px;
 }
 
-.score-item .label {
-  font-size: 0.75rem;
-  color: var(--text-sub);
-}
-
-.score-item .value {
-  font-family: var(--font-digital);
-  font-size: 1.5rem;
-}
-
-.highlight-score {
-  color: var(--gold);
-}
-
-.combo-val {
-  color: var(--accent-blue);
-}
-
-.fever-bar-wrap {
-  width: 130px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.fever-bar-label {
-  font-size: 0.65rem;
-  color: var(--gold);
-  font-weight: bold;
-}
-
-.fever-bar-track {
-  width: 100%;
-  height: 5px;
+.stat-cap {
   background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #555;
-  border-radius: 4px;
-  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 3px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
 }
 
-.fever-progress {
-  height: 100%;
-  background: linear-gradient(90deg, #ffd23f, #ff334b);
-  transition: width 0.25s ease;
+.cap-lbl {
+  font-size: 0.65rem;
+  color: var(--text-sub);
+}
+
+.cap-val {
+  font-family: var(--font-digital);
+  font-size: 1.05rem;
+  color: #ffffff;
+}
+
+.stat-hr .cap-val {
+  color: var(--gold);
 }
 
 /* 実況テロップ */
 .announcer-box {
   position: absolute;
-  top: 68px;
+  top: 72px;
   left: 10px;
   right: 10px;
   z-index: 15;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.88);
   border-left: 4px solid var(--gold);
   padding: 4px 16px;
   border-radius: 4px;
@@ -548,12 +540,10 @@ html, body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
 }
 
-/* ==========================================================================
-   左右分割レイアウト（16:9フル活用）
-   ========================================================================== */
+/* メイン左右分割 */
 .game-main-split {
   position: absolute;
-  top: 102px;
+  top: 106px;
   bottom: 10px;
   left: 10px;
   right: 10px;
@@ -562,7 +552,7 @@ html, body {
   gap: 12px;
 }
 
-/* 左側：打席＆約分ノートゾーン */
+/* 左側：打席ゾーン */
 .battle-left-zone {
   flex: 1;
   background: rgba(14, 25, 42, 0.92);
@@ -599,7 +589,7 @@ html, body {
   border-radius: 12px;
 }
 
-/* 教科書風・約分ノートコンテナ */
+/* 約分ノート */
 .fraction-notebook {
   flex: 1;
   display: flex;
@@ -610,7 +600,6 @@ html, body {
   padding: 6px 0;
 }
 
-/* ステップカード（分数の塊） */
 .step-card {
   display: flex;
   flex-direction: column;
@@ -672,7 +661,6 @@ html, body {
   margin: 3px 0;
 }
 
-/* 教科書風・赤斜線取り消し線（／）アニメーション */
 .slashed {
   position: relative;
   color: #888888 !important;
@@ -696,7 +684,6 @@ html, body {
   100% { width: 120%; left: -10%; }
 }
 
-/* ステップ履歴（矢印＋割った数バッジ） */
 .step-history {
   display: flex;
   align-items: center;
@@ -726,7 +713,6 @@ html, body {
   color: var(--accent-blue);
 }
 
-/* ヒントメッセージ */
 .step-hint-box {
   background: linear-gradient(90deg, #0284c7, #2563eb);
   color: #fff;
@@ -745,7 +731,7 @@ html, body {
 }
 
 /* ==========================================================================
-   右側：2〜20 わる数パレット（5列×4行）
+   右側：2〜20 わる数パレット（連打防止ロック機能付き）
    ========================================================================== */
 .keypad-right-zone {
   width: 53%;
@@ -778,9 +764,17 @@ html, body {
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(4, 1fr);
   gap: 6px;
+  transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
-/* わる数ボタン（48px以上のゆったりタップ領域） */
+/* ⏱️ 連打防止クールダウン中（空振り後、一定時間操作完全ロック） */
+.divisor-grid.locked {
+  pointer-events: none !important;
+  opacity: 0.45;
+  filter: grayscale(0.7) brightness(0.8);
+  cursor: not-allowed;
+}
+
 .div-btn {
   font-family: var(--font-digital);
   font-size: 1.35rem;
@@ -792,7 +786,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px; /* スキル絶対ルール */
+  min-height: 48px;
   box-shadow: 0 3px 0 #0d151c;
   transition: transform 0.08s, filter 0.15s, background 0.2s, border-color 0.2s;
   touch-action: manipulation;
@@ -803,32 +797,8 @@ html, body {
   box-shadow: 0 1px 0 #0d151c;
 }
 
-/* ヒントボタン枠 */
-.hint-btn {
-  font-family: var(--font-family);
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #fff;
-  background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
-  border: 1.5px solid #2dd4bf;
-  box-shadow: 0 3px 0 #042f2e;
-}
-
-/* ヒント時ハイライト点滅 */
-.div-btn.btn-highlight {
-  border-color: var(--gold) !important;
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
-  box-shadow: 0 0 18px var(--gold-glow), 0 3px 0 #78350f !important;
-  animation: hintPulse 0.6s infinite alternate;
-}
-
-@keyframes hintPulse {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.06); }
-}
-
 /* ==========================================================================
-   ホームランカットインモーダル
+   ホームランカットイン
    ========================================================================== */
 .homerun-modal {
   position: absolute;
@@ -866,11 +836,7 @@ html, body {
   100% { transform: scale(1); opacity: 1; }
 }
 
-.homerun-img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
+.homerun-img { width: 100%; height: auto; display: block; }
 
 .homerun-banner {
   position: absolute;
@@ -904,45 +870,46 @@ html, body {
 }
 
 /* ==========================================================================
-   4. リザルト画面
+   4. リザルト（プロスピ風選手能力カード）画面
    ========================================================================== */
+.player-card-style {
+  border: 2.5px solid var(--gold);
+  background: linear-gradient(180deg, #111d2e 0%, #0a111a 100%);
+  box-shadow: 0 0 40px rgba(255, 210, 63, 0.3);
+}
+
 .result-card {
   position: relative;
   z-index: 20;
   width: 88%;
   max-width: 760px;
-  background: var(--bg-card);
-  border: 2px solid var(--gold);
   border-radius: 14px;
-  padding: 18px 26px;
+  padding: 16px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
 }
 
 .result-header {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   width: 100%;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   padding-bottom: 10px;
 }
 
 .result-trophy-img {
-  width: 70px;
-  height: 70px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   border: 2px solid var(--gold);
   object-fit: cover;
   box-shadow: 0 0 15px var(--gold-glow);
 }
 
-.result-title-group {
-  flex: 1;
-}
+.result-title-group { flex: 1; }
 
 .game-set-badge {
   display: inline-block;
@@ -955,27 +922,44 @@ html, body {
   margin-bottom: 2px;
 }
 
-.result-title {
-  font-size: 1.7rem;
-  color: #fff;
+.result-title { font-size: 1.6rem; color: #fff; }
+.result-player-name { font-size: 1.1rem; color: var(--gold); font-weight: bold; }
+
+/* 最終ランク大型サークル */
+.final-rank-circle {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-digital);
+  font-size: 2.5rem;
+  color: #ffffff;
+  background: var(--rank-s);
+  box-shadow: 0 0 20px var(--gold);
 }
 
-.result-player-name {
-  font-size: 1.05rem;
-  color: var(--gold);
-  font-weight: bold;
-}
-
-.result-stats-board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+/* 選手能力カード内部 */
+.player-ability-card {
   width: 100%;
-  margin-bottom: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 12px;
 }
 
-.res-stat-col {
-  background: rgba(0, 0, 0, 0.6);
+.ability-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.stat-box {
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 8px;
@@ -984,56 +968,107 @@ html, body {
   align-items: center;
 }
 
-.stat-label {
-  font-size: 0.7rem;
+.stat-lbl {
+  font-size: 0.75rem;
   color: var(--text-sub);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
-.stat-val {
+.stat-grade {
   font-family: var(--font-digital);
-  font-size: 1.8rem;
-  color: #fff;
-}
-
-.stat-val.highlight {
-  color: var(--gold);
   font-size: 2.2rem;
+  line-height: 1;
 }
 
-.stat-val small {
-  font-size: 0.85rem;
-  font-family: var(--font-family);
-  font-weight: normal;
+.highlight-blue { color: var(--accent-blue); }
+.highlight-gold { color: var(--gold); }
+
+.stat-num, .stat-name-sub {
+  font-family: var(--font-digital);
+  font-size: 1.1rem;
   color: var(--text-sub);
 }
 
-.result-title-award {
-  width: 100%;
-  background: linear-gradient(90deg, rgba(255, 210, 63, 0.12), rgba(255, 51, 75, 0.12));
-  border: 1px solid var(--gold);
-  border-radius: 8px;
-  padding: 6px 14px;
-  text-align: center;
-  margin-bottom: 12px;
+.stat-name-sub {
+  font-family: var(--font-family);
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--gold);
 }
 
-.award-label {
+/* 通算成績 */
+.stats-summary-row {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--text-sub);
+}
+
+.stats-summary-row strong {
+  color: #fff;
+  font-family: var(--font-digital);
+  font-size: 1.15rem;
+}
+
+/* 特殊能力 */
+.special-abilities-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skills-label {
   font-size: 0.75rem;
   color: var(--gold);
   font-weight: bold;
 }
 
-.award-title {
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: #fff;
-  letter-spacing: 1px;
+.skills-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
-.award-desc {
+.skill-tag {
   font-size: 0.75rem;
-  color: var(--text-sub);
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #b45309, #d97706);
+  color: #fff;
+  border: 1px solid #fde68a;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.4);
+}
+
+/* 総合査定スコア */
+.eval-score-bar {
+  width: 100%;
+  background: linear-gradient(90deg, rgba(255, 210, 63, 0.15), rgba(255, 51, 75, 0.15));
+  border: 1.5px solid var(--gold);
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.eval-lbl {
+  font-size: 0.85rem;
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.eval-val {
+  font-family: var(--font-digital);
+  font-size: 2rem;
+  color: #00ffaa;
+  text-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
 }
 
 .register-status-box {
@@ -1079,12 +1114,7 @@ html, body {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
 }
 
-.modal-title {
-  font-size: 1.5rem;
-  color: var(--gold);
-  margin-bottom: 12px;
-  text-align: center;
-}
+.modal-title { font-size: 1.5rem; color: var(--gold); margin-bottom: 12px; text-align: center; }
 
 .howto-body {
   overflow-y: auto;
@@ -1150,12 +1180,8 @@ html, body {
   border-radius: 6px;
 }
 
-/* ランキングモーダル */
-.ranking-header {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
+/* ランキング */
+.ranking-header { text-align: center; margin-bottom: 10px; }
 .ranking-header h2 { font-size: 1.6rem; color: var(--gold); }
 .ranking-sub { font-size: 0.75rem; color: var(--text-sub); }
 
@@ -1180,11 +1206,7 @@ html, body {
   border-radius: 6px;
 }
 
-.ranking-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: center;
-}
+.ranking-table { width: 100%; border-collapse: collapse; text-align: center; }
 
 .ranking-table th {
   background: #1e293b;
