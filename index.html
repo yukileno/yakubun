@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>プロベースボール・スピリッツ：約分スラッガー育成ロード</title>
+  <title>プロベースボール・スピリッツ：約分スラッガー 1000問ロード</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- アプリ本体（16:9固定コンテナ） -->
   <div id="app-container">
 
-    <!-- ⚡ フィーバー用GPU高速オーバーレイ -->
+    <!-- ⚡ フィーバーオーバーレイ -->
     <div id="fever-overlay" class="fever-screen-glow"></div>
 
     <!-- ホームラン演出カットイン -->
@@ -20,12 +19,12 @@
         <div class="homerun-banner">
           <div class="homerun-text-sub">JACKPOT SLAM!</div>
           <div class="homerun-text-main" id="cutin-title">特大ホームラン！！</div>
-          <div class="homerun-bonus-pts" id="cutin-stat-up">パワー +15UP! 弾道上昇!</div>
+          <div class="homerun-bonus-pts" id="cutin-stat-up">約分せいかい！ 通算本塁打 UP!</div>
         </div>
       </div>
     </div>
 
-    <!-- 紙吹雪用Canvas -->
+    <!-- 紙吹雪Canvas -->
     <canvas id="confetti-canvas"></canvas>
 
     <!-- ==================== 1. タイトル画面 ==================== -->
@@ -36,37 +35,50 @@
       </div>
 
       <div class="title-content">
-        <div class="game-badge">小学5年生 算数「約分」選手育成ゲーム</div>
+        <div class="game-badge">小学5年生 算数「約分」1000問育成ロード</div>
         <h1 class="game-logo">
           <span class="logo-sub">PRO BASEBALL SPIRITS</span>
-          <span class="logo-main">約分スラッガー育成</span>
-          <span class="logo-tag">〜ホームランを打って最強打者を育てろ！〜</span>
+          <span class="logo-main">約分スラッガー</span>
+          <span class="logo-tag">〜1000問解いてSランク名球会を目指せ！〜</span>
         </h1>
 
-        <!-- 児童ニックネーム入力 -->
+        <!-- アカウント管理カード -->
         <div class="player-input-card">
+          <!-- 前回の続きカード（既存データがある場合表示） -->
+          <div id="resume-box" class="resume-box hide">
+            <div class="resume-label">前回のセーブデータが見つかりました</div>
+            <div class="resume-info">
+              <span class="resume-name" id="resume-name">選手名</span>
+              <span class="resume-badge" id="resume-rank">D</span>
+              <span class="resume-solved">通算 <strong id="resume-solved-count">0</strong> 問</span>
+            </div>
+            <button id="btn-resume-start" class="btn btn-primary btn-pulse">
+              <span class="btn-icon">⚾</span> つづきから遊ぶ！
+            </button>
+            <div class="resume-divider">または</div>
+          </div>
+
+          <!-- 選手名入力・呼び出し -->
           <div class="input-header">
             <span class="uniform-icon">⚾</span>
-            <label for="player-name">育成する選手の名前をいれてね</label>
+            <label for="player-name">選手名（なまえ）をいれてね</label>
           </div>
           <input type="text" id="player-name" maxlength="10" placeholder="せんしゅめい（10文字まで）" autocomplete="off">
-          <div class="name-hint">※全国ランキングに選手カードが登録されるよ！</div>
+          <div class="name-hint">※最初に入力した名前でデータが呼び出され、上書き保存されます。<br>（プレイ中に名前を変えて他人のデータを上書きすることはできません）</div>
+
+          <div class="title-buttons" style="margin-top: 10px;">
+            <button id="btn-new-start" class="btn btn-secondary">
+              <span class="btn-icon">✨</span> この名前でスタート / 呼出
+            </button>
+            <button id="btn-title-ranking" class="btn btn-info">
+              <span class="btn-icon">🏆</span> 全国ランキング
+            </button>
+            <button id="btn-how-to" class="btn btn-outline">
+              <span class="btn-icon">📖</span> ルール
+            </button>
+          </div>
         </div>
 
-        <!-- ボタン群 -->
-        <div class="title-buttons">
-          <button id="btn-start" class="btn btn-primary btn-pulse">
-            <span class="btn-icon">⚾</span> 育成マッチ開始！（全10打席）
-          </button>
-          <button id="btn-title-ranking" class="btn btn-secondary">
-            <span class="btn-icon">🏆</span> 全国スラッガーランキング
-          </button>
-          <button id="btn-how-to" class="btn btn-info">
-            <span class="btn-icon">📖</span> 育成ルール・あそびかた
-          </button>
-        </div>
-
-        <!-- 音声ミュートトグル -->
         <button id="btn-mute" class="btn-mute" title="おとのON/OFF">🔊</button>
       </div>
     </section>
@@ -74,10 +86,10 @@
     <!-- ==================== 2. あそびかた画面 ==================== -->
     <section id="screen-howto" class="screen hide">
       <div class="modal-card">
-        <h2 class="modal-title">⚾ 育成ルール＆約分のコツ</h2>
+        <h2 class="modal-title">⚾ 1000問ロードのルール＆育成のコツ</h2>
         <div class="howto-body">
           <div class="howto-rule-box">
-            <h3>🎯 1試合＝全10打席！じっくり考えて約分しよう！</h3>
+            <h3>🎯 エンドレス育成！何問でも続けて解ける！</h3>
             <p>時間のカウントダウンはありません。<strong>分子（上）と分母（下）の両方を割り切れるボタン（2〜20）</strong>を選んでスイングしよう！</p>
           </div>
 
@@ -85,29 +97,29 @@
             <div class="howto-card card-homerun">
               <div class="howto-badge gold">かず方式</div>
               <h4>🌟 一発ホームラン！（最大公約数）</h4>
-              <p>一撃で約分完了させると<strong>特大ホームラン</strong>！<strong>【パワー+15】＆【弾道UP】</strong>で一気に長打力覚醒！</p>
-              <div class="howto-formula">18/24 ➔ <strong>[ 6 ]</strong> 一発でHR！💥</div>
+              <p>一撃で約分完了させると<strong>特大ホームラン</strong>！パワーが大きく伸びて長打力が覚醒！</p>
+              <div class="howto-formula">18/24 ➔ <strong>[ 6 ]</strong> 一発で <strong>3/4</strong>！💥</div>
             </div>
             <div class="howto-card card-hit">
               <div class="howto-badge blue">りこ方式</div>
               <h4>⚾ 繋ぎのヒット！（だんかい約分）</h4>
-              <p>2や3で小さく割っていってもOK！ヒットで出塁し<strong>【ミート+8】</strong>！ホームインでさらに能力UP！</p>
-              <div class="howto-formula">18/24 ➔ <strong>[ 2 ]</strong> ➔ 9/12 ➔ <strong>[ 3 ]</strong> ➔ 3/4 🏃</div>
+              <p>2や3で小さく割っていってもOK！ヒットで出塁しミート力UP！最後に必ず約分完了させよう！</p>
+              <div class="howto-formula">18/24 ➔ [ 2 ] ➔ 9/12 ➔ [ 3 ] ➔ <strong>3/4</strong> 🏃</div>
             </div>
           </div>
 
           <div class="howto-tips">
-            <p>⚠️ <strong>3ストライクで三振アウト！</strong>：割り切れない数を選ぶと空振り（ストライク）。1打席で3回間違えると三振チェンジになるよ！</p>
-            <p>⏱️ <strong>連打防止システム</strong>：空振りするとバットを構え直すため、少しの間ボタンがロックされるよ。適当に連打せず落ち着いて公約数を探そう！</p>
+            <p>🏆 <strong>1000問でSランク！</strong>：50問でCランク、200問でBランク、500問でAランク、<strong>1000問達成で最高峰のSランク（伝説の三冠王）</strong>へ到達！</p>
+            <p>💾 <strong>いつでも休憩セーブ</strong>：右上の「きゅうけい」ボタンで、いつでもスプレッドシートに上書きセーブして休憩できるよ！</p>
+            <p>⚠️ <strong>3ストライクで三振チェンジ</strong>：割り切れない数を選ぶと空振り（0.8秒バット構え直し）。3回間違えると三振で次の問題へ！適当な連打は通じないぞ！</p>
           </div>
         </div>
         <button id="btn-howto-close" class="btn btn-primary">わかった！（もどる）</button>
       </div>
     </section>
 
-    <!-- ==================== 3. 試合（育成ゲーム）画面 ==================== -->
+    <!-- ==================== 3. 試合（エンドレス育成）画面 ==================== -->
     <section id="screen-game" class="screen hide">
-      <!-- スタジアム背景 -->
       <div class="game-bg-wrapper">
         <img src="assets/pitcher_duel.jpg" alt="ピッチャー対決" class="game-bg">
         <div class="game-bg-overlay"></div>
@@ -115,13 +127,23 @@
 
       <!-- 上部スコアボード＆選手能力バー -->
       <div class="scoreboard-bar">
-        <!-- 打席数表示 -->
-        <div class="at-bat-box">
-          <span class="at-bat-label">打席</span>
-          <span class="at-bat-value"><strong id="current-bat">1</strong> / 10</span>
+        <!-- 選手名＆ランク -->
+        <div class="player-identity-box">
+          <div class="player-rank-badge" id="hud-player-rank">D</div>
+          <div class="player-name-wrap">
+            <span class="hud-player-name" id="hud-player-name">選手名</span>
+            <span class="hud-rank-next" id="hud-rank-next">次のランクまで あと 50問</span>
+          </div>
         </div>
 
-        <!-- カウント（ストライクランプ・走者） -->
+        <!-- 通算せいかい数（何問解いたか） -->
+        <div class="solved-counter-box">
+          <span class="counter-label">通算せいかい</span>
+          <span class="counter-val"><strong id="hud-total-solved">0</strong> <small>問</small></span>
+          <span class="session-gain" id="hud-session-gain">(+0)</span>
+        </div>
+
+        <!-- ストライクランプ＆走者 -->
         <div class="stadium-count-box">
           <div class="strike-lights">
             <span class="strike-label">S</span>
@@ -135,34 +157,36 @@
           </div>
         </div>
 
-        <!-- リアルタイム選手育成パラメータ -->
-        <div class="player-stat-bar">
-          <div class="player-rank-badge" id="hud-player-rank">D</div>
-          <div class="stat-capsules">
-            <div class="stat-cap">
-              <span class="cap-lbl">弾道</span>
-              <span class="cap-val" id="hud-trajectory">1</span>
-            </div>
-            <div class="stat-cap">
-              <span class="cap-lbl">ミート</span>
-              <span class="cap-val" id="hud-meet">E 40</span>
-            </div>
-            <div class="stat-cap">
-              <span class="cap-lbl">パワー</span>
-              <span class="cap-val" id="hud-power">E 40</span>
-            </div>
-            <div class="stat-cap stat-hr">
-              <span class="cap-lbl">本塁打</span>
-              <span class="cap-val" id="hud-hr">0本</span>
-            </div>
+        <!-- 選手ステータス（弾道・ミート・パワー・HR） -->
+        <div class="stat-capsules">
+          <div class="stat-cap">
+            <span class="cap-lbl">弾道</span>
+            <span class="cap-val" id="hud-trajectory">1</span>
+          </div>
+          <div class="stat-cap">
+            <span class="cap-lbl">ミート</span>
+            <span class="cap-val" id="hud-meet">E 40</span>
+          </div>
+          <div class="stat-cap">
+            <span class="cap-lbl">パワー</span>
+            <span class="cap-val" id="hud-power">E 40</span>
+          </div>
+          <div class="stat-cap stat-hr">
+            <span class="cap-lbl">本塁打</span>
+            <span class="cap-val" id="hud-hr">0本</span>
           </div>
         </div>
+
+        <!-- 💾 いつでも休憩・セーブボタン -->
+        <button id="btn-save-rest" class="btn btn-save-rest" title="進捗をセーブして休憩する">
+          <span>💾 きゅうけい</span>
+        </button>
       </div>
 
       <!-- 実況アナウンステロップ -->
       <div id="announcer-box" class="announcer-box">
         <span class="announcer-icon">📢</span>
-        <span id="announcer-text" class="announcer-text">さあ第1打席！2〜20の中から上も下も割れる数を選んで打て！</span>
+        <span id="announcer-text" class="announcer-text">上も下も割れる公約数を選んでスイング！</span>
       </div>
 
       <!-- メインエリア：左右分割レイアウト -->
@@ -174,7 +198,7 @@
             <span class="pitch-badge" id="yakubun-badge">約分せよ！</span>
           </div>
 
-          <!-- 教科書風・約分ステップノート -->
+          <!-- 教科書風・約分ステップノート（約分しきった分数を大きく表示！） -->
           <div class="fraction-notebook" id="fraction-notebook">
             <div class="step-card" id="step-0">
               <div class="step-tag">投球された数</div>
@@ -199,25 +223,21 @@
             <span class="palette-title">⚾ 何でわる？（公約数をタップ！）</span>
           </div>
           <div class="divisor-grid" id="divisor-grid">
-            <!-- 1行目 -->
             <button class="div-btn" data-val="2">÷ 2</button>
             <button class="div-btn" data-val="3">÷ 3</button>
             <button class="div-btn" data-val="4">÷ 4</button>
             <button class="div-btn" data-val="5">÷ 5</button>
             <button class="div-btn" data-val="6">÷ 6</button>
-            <!-- 2行目 -->
             <button class="div-btn" data-val="7">÷ 7</button>
             <button class="div-btn" data-val="8">÷ 8</button>
             <button class="div-btn" data-val="9">÷ 9</button>
             <button class="div-btn" data-val="10">÷ 10</button>
             <button class="div-btn" data-val="11">÷ 11</button>
-            <!-- 3行目 -->
             <button class="div-btn" data-val="12">÷ 12</button>
             <button class="div-btn" data-val="13">÷ 13</button>
             <button class="div-btn" data-val="14">÷ 14</button>
             <button class="div-btn" data-val="15">÷ 15</button>
             <button class="div-btn" data-val="16">÷ 16</button>
-            <!-- 4行目（17〜20） -->
             <button class="div-btn" data-val="17">÷ 17</button>
             <button class="div-btn" data-val="18">÷ 18</button>
             <button class="div-btn" data-val="19">÷ 19</button>
@@ -227,18 +247,33 @@
       </div>
     </section>
 
-    <!-- ==================== 4. リザルト（選手査定・選手カード）画面 ==================== -->
+    <!-- ==================== 4. リザルト（セーブ完了・選手カード）画面 ==================== -->
     <section id="screen-result" class="screen hide">
       <div class="result-card player-card-style">
         <div class="result-header">
           <img src="assets/trophy_mvp.jpg" alt="MVPトロフィー" class="result-trophy-img">
           <div class="result-title-group">
-            <div class="game-set-badge">TRAINING COMPLETE</div>
-            <h2 class="result-title">プロスピ選手能力 査定発表</h2>
-            <div class="result-player-name" id="res-player-name">選手名</div>
+            <div class="game-set-badge">PROGRESS SAVED</div>
+            <h2 class="result-title">きゅうけい・選手データセーブ完了</h2>
+            <div class="result-player-name" id="res-player-name">選手名（固定）</div>
           </div>
-          <!-- 最終選手ランク -->
-          <div class="final-rank-circle" id="res-final-rank">S</div>
+          <div class="final-rank-circle" id="res-final-rank">D</div>
+        </div>
+
+        <!-- 通算成果サマリー -->
+        <div class="solved-progress-summary">
+          <div class="progress-col">
+            <span class="p-lbl">今回といた問数</span>
+            <span class="p-val highlight-green" id="res-session-gain">+0 問</span>
+          </div>
+          <div class="progress-col">
+            <span class="p-lbl">通算せいかい数</span>
+            <span class="p-val highlight-gold" id="res-total-solved">0 問</span>
+          </div>
+          <div class="progress-col">
+            <span class="p-lbl">次のランクまで</span>
+            <span class="p-val" id="res-next-remain">あと 50 問</span>
+          </div>
         </div>
 
         <!-- 選手能力カード -->
@@ -246,60 +281,49 @@
           <div class="ability-row">
             <div class="stat-box">
               <span class="stat-lbl">弾道</span>
-              <span class="stat-grade" id="res-trajectory">4</span>
-              <span class="stat-name-sub" id="res-trajectory-name">アーチスト</span>
+              <span class="stat-grade" id="res-trajectory">1</span>
+              <span class="stat-name-sub" id="res-trajectory-name">グラウンダー</span>
             </div>
             <div class="stat-box">
               <span class="stat-lbl">ミート</span>
-              <span class="stat-grade highlight-blue" id="res-meet-grade">A</span>
-              <span class="stat-num" id="res-meet-num">85</span>
+              <span class="stat-grade highlight-blue" id="res-meet-grade">E</span>
+              <span class="stat-num" id="res-meet-num">40</span>
             </div>
             <div class="stat-box">
               <span class="stat-lbl">パワー</span>
-              <span class="stat-grade highlight-gold" id="res-power-grade">S</span>
-              <span class="stat-num" id="res-power-num">98</span>
+              <span class="stat-grade highlight-gold" id="res-power-grade">E</span>
+              <span class="stat-num" id="res-power-num">40</span>
             </div>
           </div>
 
-          <!-- 通算成績 -->
           <div class="stats-summary-row">
-            <div class="sum-item">打率: <strong id="res-avg">.800</strong></div>
-            <div class="sum-item">本塁打: <strong id="res-hr-count">6</strong> 本</div>
-            <div class="sum-item">安打: <strong id="res-hit-count">3</strong> 本</div>
-            <div class="sum-item">三振: <strong id="res-so-count">1</strong></div>
+            <div class="sum-item">通算本塁打: <strong id="res-hr-count">0</strong> 本</div>
+            <div class="sum-item">通算安打: <strong id="res-hit-count">0</strong> 本</div>
+            <div class="sum-item">通算三振: <strong id="res-so-count">0</strong></div>
           </div>
 
-          <!-- 習得特殊能力一覧 -->
           <div class="special-abilities-wrap">
-            <span class="skills-label">習得特殊能力：</span>
-            <div class="skills-tags" id="res-special-skills">
-              <!-- JSで動的生成 -->
-            </div>
+            <span class="skills-label">獲得称号・能力：</span>
+            <div class="skills-tags" id="res-special-skills"></div>
           </div>
-        </div>
-
-        <!-- 育成査定スコア -->
-        <div class="eval-score-bar">
-          <span class="eval-lbl">総合育成査定スコア</span>
-          <span class="eval-val" id="res-eval-score">4,850 PTS</span>
         </div>
 
         <!-- スプレッドシート登録状況 -->
         <div id="register-status" class="register-status-box">
           <span class="status-icon">📡</span>
-          <span id="register-msg">スプレッドシートに記録中...</span>
+          <span id="register-msg">スプレッドシートに上書き記録完了！</span>
         </div>
 
         <!-- ボタン群 -->
         <div class="result-buttons">
-          <button id="btn-retry" class="btn btn-primary btn-pulse">
-            <span class="btn-icon">🔄</span> もう1試合育成する！
+          <button id="btn-continue" class="btn btn-primary btn-pulse">
+            <span class="btn-icon">⚾</span> つづけて練習する！
           </button>
           <button id="btn-result-ranking" class="btn btn-secondary">
             <span class="btn-icon">🏆</span> 全国ランキングを見る
           </button>
           <button id="btn-back-title" class="btn btn-outline">
-            <span class="btn-icon">🏠</span> タイトルへ
+            <span class="btn-icon">🏠</span> タイトルへもどる
           </button>
         </div>
       </div>
@@ -309,7 +333,7 @@
     <section id="screen-ranking" class="screen hide">
       <div class="modal-card ranking-modal">
         <div class="ranking-header">
-          <h2>🏆 全国スラッガーランキング</h2>
+          <h2>🏆 全国スラッガーランキング（通算問数）</h2>
           <div class="ranking-sub">（統合スプレッドシート集中管理記録）</div>
         </div>
 
@@ -323,12 +347,10 @@
               <tr>
                 <th>順位</th>
                 <th>せんしゅめい</th>
-                <th>育成スコア</th>
+                <th>通算せいかい問数</th>
               </tr>
             </thead>
-            <tbody id="ranking-tbody">
-              <!-- JSで動的生成 -->
-            </tbody>
+            <tbody id="ranking-tbody"></tbody>
           </table>
           <div id="ranking-loading" class="ranking-loading">読み込み中...</div>
         </div>
@@ -336,7 +358,7 @@
         <div id="my-rank-card" class="my-rank-card hide">
           <span class="my-rank-badge" id="my-rank-badge">あなた: 第 - 位</span>
           <span class="my-rank-name" id="my-rank-name">--</span>
-          <span class="my-rank-score" id="my-rank-score">0 PTS</span>
+          <span class="my-rank-score" id="my-rank-score">0 問</span>
         </div>
 
         <button id="btn-ranking-close" class="btn btn-primary">とじる</button>

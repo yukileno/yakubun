@@ -1,6 +1,7 @@
 /* ==========================================================================
-   プロベースボール・スピリッツ：約分スラッガー育成ロード (main.js)
-   全10打席・3ストライク制・ホームラン選手育成＆連打防止エンジン
+   プロベースボール・スピリッツ：約分スラッガー 1000問ロード (main.js)
+   1000問Sランク育成・エンドレス形式・アカウント管理（呼出＆上書き固定）
+   約分しきった分数の確実表示・連打完全防止
    ========================================================================== */
 
 function calcGcd(a, b) {
@@ -46,29 +47,30 @@ const PROBLEM_POOL = [
   { num: 50, den: 100 } // 1/2
 ];
 
+// ストレージキー
+const STORAGE_CURRENT_PLAYER = 'yakubun_active_player';
+const STORAGE_PREFIX = 'yakubun_data_';
+
 // ゲームステート
 const state = {
   screen: 'title',
   playerName: '',
   sessionToken: '',
   playing: false,
-  isLocked: false, // 連打防止・アニメーション中ロック
+  isLocked: false,
 
-  // 打席制（全10打席）
-  currentBat: 1,
-  totalBats: 10,
-  strikes: 0, // 0〜3（3で三振アウト）
-  bases: [false, false, false], // 1塁, 2塁, 3塁
-
-  // 選手育成パラメータ
-  meet: 40,        // ミート (0〜99)
-  power: 40,       // パワー (0〜99)
-  trajectory: 1,   // 弾道 (1〜4)
-  homeruns: 0,     // 本塁打数
-  hits: 0,         // 安打数
-  strikeouts: 0,   // 三振数
+  // 通算・育成パラメータ（1000問ロード）
+  totalSolved: 0,      // 通算正解問数
+  sessionGain: 0,      // 今回のセッションで解いた問数
+  totalHomeruns: 0,    // 通算ホームラン
+  totalHits: 0,        // 通算安打
+  totalStrikeouts: 0,  // 通算三振
   consecutiveHits: 0,
-  abilities: new Set(), // 特殊能力セット
+  abilities: new Set(['期待の新人']),
+
+  // 打席状況
+  strikes: 0, // 0〜3
+  bases: [false, false, false],
 
   // 現在の問題
   currentProblem: null,
@@ -95,15 +97,24 @@ const dom = {
   confettiCanvas: document.getElementById('confetti-canvas'),
 
   // タイトル
+  resumeBox: document.getElementById('resume-box'),
+  resumeName: document.getElementById('resume-name'),
+  resumeRank: document.getElementById('resume-rank'),
+  resumeSolvedCount: document.getElementById('resume-solved-count'),
+  btnResumeStart: document.getElementById('btn-resume-start'),
   playerNameInput: document.getElementById('player-name'),
-  btnStart: document.getElementById('btn-start'),
+  btnNewStart: document.getElementById('btn-new-start'),
   btnTitleRanking: document.getElementById('btn-title-ranking'),
   btnHowto: document.getElementById('btn-how-to'),
-  btnMute: document.getElementById('btn-mute'),
   btnHowtoClose: document.getElementById('btn-howto-close'),
+  btnMute: document.getElementById('btn-mute'),
 
   // ゲーム画面HUD
-  currentBat: document.getElementById('current-bat'),
+  hudPlayerName: document.getElementById('hud-player-name'),
+  hudPlayerRank: document.getElementById('hud-player-rank'),
+  hudRankNext: document.getElementById('hud-rank-next'),
+  hudTotalSolved: document.getElementById('hud-total-solved'),
+  hudSessionGain: document.getElementById('hud-session-gain'),
   strikeDots: [
     document.getElementById('strike-1'),
     document.getElementById('strike-2')
@@ -113,11 +124,11 @@ const dom = {
     document.getElementById('base-2'),
     document.getElementById('base-3')
   ],
-  hudPlayerRank: document.getElementById('hud-player-rank'),
   hudTrajectory: document.getElementById('hud-trajectory'),
   hudMeet: document.getElementById('hud-meet'),
   hudPower: document.getElementById('hud-power'),
   hudHr: document.getElementById('hud-hr'),
+  btnSaveRest: document.getElementById('btn-save-rest'),
   announcerText: document.getElementById('announcer-text'),
 
   // 打席ノート
@@ -134,21 +145,22 @@ const dom = {
   // リザルト画面
   resPlayerName: document.getElementById('res-player-name'),
   resFinalRank: document.getElementById('res-final-rank'),
+  resSessionGain: document.getElementById('res-session-gain'),
+  resTotalSolved: document.getElementById('res-total-solved'),
+  resNextRemain: document.getElementById('res-next-remain'),
   resTrajectory: document.getElementById('res-trajectory'),
   resTrajectoryName: document.getElementById('res-trajectory-name'),
   resMeetGrade: document.getElementById('res-meet-grade'),
   resMeetNum: document.getElementById('res-meet-num'),
   resPowerGrade: document.getElementById('res-power-grade'),
   resPowerNum: document.getElementById('res-power-num'),
-  resAvg: document.getElementById('res-avg'),
   resHrCount: document.getElementById('res-hr-count'),
   resHitCount: document.getElementById('res-hit-count'),
   resSoCount: document.getElementById('res-so-count'),
   resSpecialSkills: document.getElementById('res-special-skills'),
-  resEvalScore: document.getElementById('res-eval-score'),
   registerStatus: document.getElementById('register-status'),
   registerMsg: document.getElementById('register-msg'),
-  btnRetry: document.getElementById('btn-retry'),
+  btnContinue: document.getElementById('btn-continue'),
   btnResultRanking: document.getElementById('btn-result-ranking'),
   btnBackTitle: document.getElementById('btn-back-title'),
 
@@ -164,7 +176,108 @@ const dom = {
 };
 
 // ==========================================================================
-// 画面切り替え
+// 1000問Sランク育成計算ロジック
+// ==========================================================================
+function calcOverallRank(solved) {
+  if (solved >= 1000) return 'S'; // 伝説の三冠王・名球会
+  if (solved >= 500)  return 'A'; // 球界の主砲
+  if (solved >= 200)  return 'B'; // 一軍レギュラー
+  if (solved >= 50)   return 'C'; // 期待の若手
+  return 'D';                     // ルーキー
+}
+
+function getNextRankHint(solved) {
+  if (solved >= 1000) return '最高峰Sランク到達！伝説の名球会！';
+  if (solved >= 500)  return `Sランクまで あと ${1000 - solved}問`;
+  if (solved >= 200)  return `Aランクまで あと ${500 - solved}問`;
+  if (solved >= 50)   return `Bランクまで あと ${200 - solved}問`;
+  return `Cランクまで あと ${50 - solved}問`;
+}
+
+function calcTrajectory(solved) {
+  if (solved >= 700) return 4; // アーチスト
+  if (solved >= 300) return 3; // 高弾道
+  if (solved >= 100) return 2; // 中弾道
+  return 1;                    // グラウンダー
+}
+
+function getTrajectoryName(traj) {
+  if (traj >= 4) return 'アーチスト';
+  if (traj === 3) return '高弾道';
+  if (traj === 2) return '中弾道';
+  return 'グラウンダー';
+}
+
+function calcPower(hr) {
+  // 700本のホームランで99到達
+  return Math.min(99, Math.floor(40 + (hr / 700) * 59));
+}
+
+function calcMeet(solved) {
+  // 1000問正解で99到達
+  return Math.min(99, Math.floor(40 + (solved / 1000) * 59));
+}
+
+function getGrade(val) {
+  if (val >= 90) return 'S';
+  if (val >= 80) return 'A';
+  if (val >= 70) return 'B';
+  if (val >= 60) return 'C';
+  if (val >= 50) return 'D';
+  if (val >= 40) return 'E';
+  if (val >= 30) return 'F';
+  return 'G';
+}
+
+// ==========================================================================
+// アカウント管理（ローカル・スプレッドシート連動＆上書き固定）
+// ==========================================================================
+function loadLocalPlayerData(name) {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + name);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {}
+  return null;
+}
+
+function saveLocalPlayerData() {
+  if (!state.playerName) return;
+  const data = {
+    name: state.playerName,
+    totalSolved: state.totalSolved,
+    totalHomeruns: state.totalHomeruns,
+    totalHits: state.totalHits,
+    totalStrikeouts: state.totalStrikeouts,
+    abilities: Array.from(state.abilities),
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_CURRENT_PLAYER, state.playerName);
+  localStorage.setItem(STORAGE_PREFIX + state.playerName, JSON.stringify(data));
+}
+
+// タイトル画面のセーブデータ読み込み
+function checkTitleSavedData() {
+  const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER);
+  if (lastPlayer) {
+    const data = loadLocalPlayerData(lastPlayer);
+    if (data && data.totalSolved !== undefined) {
+      dom.resumeBox.classList.remove('hide');
+      dom.resumeName.textContent = `${data.name} 選手`;
+      const rank = calcOverallRank(data.totalSolved);
+      dom.resumeRank.textContent = rank;
+      dom.resumeRank.className = `resume-badge rank-${rank.toLowerCase()}`;
+      dom.resumeSolvedCount.textContent = data.totalSolved;
+      dom.playerNameInput.value = data.name;
+      return;
+    }
+  }
+  dom.resumeBox.classList.add('hide');
+}
+
+// ==========================================================================
+// 画面切り替え＆HUD更新
 // ==========================================================================
 function showScreen(screenName) {
   state.screen = screenName;
@@ -183,97 +296,89 @@ function announce(text) {
   dom.announcerText.textContent = text;
 }
 
-// 走者表示
 function updateBases() {
   dom.bases.forEach((baseEl, idx) => {
-    if (state.bases[idx]) {
-      baseEl.classList.add('occupied');
-    } else {
-      baseEl.classList.remove('occupied');
-    }
+    baseEl.classList.toggle('occupied', state.bases[idx]);
   });
 }
 
-// ストライクランプ更新
 function updateStrikeLamps() {
   dom.strikeDots[0].classList.toggle('active', state.strikes >= 1);
   dom.strikeDots[1].classList.toggle('active', state.strikes >= 2);
 }
 
-// パラメータグレード変換 (S/A/B/C/D/E/F/G)
-function getGrade(val) {
-  if (val >= 90) return 'S';
-  if (val >= 80) return 'A';
-  if (val >= 70) return 'B';
-  if (val >= 60) return 'C';
-  if (val >= 50) return 'D';
-  if (val >= 40) return 'E';
-  if (val >= 30) return 'F';
-  return 'G';
-}
-
-// 弾道名
-function getTrajectoryName(val) {
-  if (val >= 4) return 'アーチスト';
-  if (val === 3) return '高弾道';
-  if (val === 2) return '中弾道';
-  return 'グラウンダー';
-}
-
-// 総合ランク計算 (S/A/B/C/D)
-function calcOverallRank() {
-  const avg = (state.meet + state.power) / 2;
-  if (avg >= 85 && state.homeruns >= 4) return 'S';
-  if (avg >= 75) return 'A';
-  if (avg >= 65) return 'B';
-  if (avg >= 50) return 'C';
-  return 'D';
-}
-
-// HUD表示更新
 function updateHud() {
-  dom.currentBat.textContent = state.currentBat;
+  dom.hudPlayerName.textContent = `${state.playerName} 選手`;
+
+  const rank = calcOverallRank(state.totalSolved);
+  dom.hudPlayerRank.textContent = rank;
+  dom.hudPlayerRank.className = `player-rank-badge rank-${rank.toLowerCase()}`;
+  dom.hudRankNext.textContent = getNextRankHint(state.totalSolved);
+
+  dom.hudTotalSolved.textContent = state.totalSolved;
+  dom.hudSessionGain.textContent = `(+${state.sessionGain})`;
+
   updateStrikeLamps();
   updateBases();
 
-  const rank = calcOverallRank();
-  dom.hudPlayerRank.textContent = rank;
-  dom.hudPlayerRank.className = `player-rank-badge rank-${rank.toLowerCase()}`;
+  const traj = calcTrajectory(state.totalSolved);
+  const curMeet = calcMeet(state.totalSolved);
+  const curPower = calcPower(state.totalHomeruns);
 
-  dom.hudTrajectory.textContent = state.trajectory;
-  dom.hudMeet.textContent = `${getGrade(state.meet)} ${Math.min(state.meet, 99)}`;
-  dom.hudPower.textContent = `${getGrade(state.power)} ${Math.min(state.power, 99)}`;
-  dom.hudHr.textContent = `${state.homeruns}本`;
+  dom.hudTrajectory.textContent = traj;
+  dom.hudMeet.textContent = `${getGrade(curMeet)} ${curMeet}`;
+  dom.hudPower.textContent = `${getGrade(curPower)} ${curPower}`;
+  dom.hudHr.textContent = `${state.totalHomeruns}本`;
 }
 
 // ==========================================================================
-// ゲーム初期化・開始
+// ゲーム開始（選手呼び出し・新規作成）
 // ==========================================================================
-function startGame() {
-  const inputName = dom.playerNameInput.value.trim();
-  state.playerName = inputName || 'スラッガー';
-  localStorage.setItem('yakubun_player_name', state.playerName);
+async function startTraining(playerName) {
+  const cleanName = playerName.trim().substring(0, 10) || 'スラッガー';
+  state.playerName = cleanName;
 
-  api.getSessionToken().then(token => {
-    state.sessionToken = token;
-  });
+  // セッショントークン
+  api.getSessionToken().then(t => state.sessionToken = t);
 
-  // 育成状態初期化
+  // 1. ローカルデータのロード
+  const localData = loadLocalPlayerData(cleanName);
+  if (localData) {
+    state.totalSolved = localData.totalSolved || 0;
+    state.totalHomeruns = localData.totalHomeruns || 0;
+    state.totalHits = localData.totalHits || 0;
+    state.totalStrikeouts = localData.totalStrikeouts || 0;
+    state.abilities = new Set(localData.abilities || ['期待の新人']);
+  } else {
+    state.totalSolved = 0;
+    state.totalHomeruns = 0;
+    state.totalHits = 0;
+    state.totalStrikeouts = 0;
+    state.abilities = new Set(['期待の新人']);
+  }
+
+  // 2. スプレッドシートから最新データの同期確認（オンライン時）
+  if (api.isOnline()) {
+    try {
+      const ranking = await api.getRanking(cleanName);
+      if (ranking && ranking.myRank && typeof ranking.myRank.score === 'number') {
+        // スプレッドシートの解いた問数の方が進んでいればマージ
+        if (ranking.myRank.score > state.totalSolved) {
+          state.totalSolved = ranking.myRank.score;
+        }
+      }
+    } catch (e) {
+      console.warn("GAS load fallback to local:", e);
+    }
+  }
+
+  state.sessionGain = 0;
   state.playing = true;
   state.isLocked = false;
-  state.currentBat = 1;
   state.strikes = 0;
   state.bases = [false, false, false];
 
-  state.meet = 40;
-  state.power = 40;
-  state.trajectory = 1;
-  state.homeruns = 0;
-  state.hits = 0;
-  state.strikeouts = 0;
-  state.consecutiveHits = 0;
-  state.abilities = new Set(['期待の新人']);
-
+  saveLocalPlayerData();
   shuffleProblems();
 
   dom.homerunCutin.classList.add('hide');
@@ -283,7 +388,7 @@ function startGame() {
   showScreen('game');
   sounds.playPlayBall();
   updateHud();
-  announce(`プレイボール！第1打席、${state.playerName}選手の育成開始！`);
+  announce(`プレイボール！${state.playerName}選手、公約数を見つけて約分しよう！`);
 
   setupProblem();
 }
@@ -298,7 +403,6 @@ function shuffleProblems() {
   state.problemIndex = 0;
 }
 
-// 打席の問題セット
 function setupProblem() {
   if (state.problemIndex >= state.problemQueue.length) {
     shuffleProblems();
@@ -328,10 +432,10 @@ function setupProblem() {
 }
 
 // ==========================================================================
-// わる数ボタン（2〜20）タップ時の判定処理（連打完全防止付き）
+// わる数ボタン（2〜20）タップ時の判定処理（連打完全防止＆約分後分数表示）
 // ==========================================================================
 function handleDivisorClick(divisor) {
-  // ⏱️ ロック中（空振りクールタイムまたはアニメーション中）は100%無効化！
+  // ⏱️ ロック中（空振りクールダウン中または約分完了表示中）は100%無効化！
   if (!state.playing || state.screen !== 'game' || state.isLocked) return;
 
   const curN = state.currentNum;
@@ -341,30 +445,33 @@ function handleDivisorClick(divisor) {
   const dDiv = (curD % divisor === 0);
 
   if (nDiv && dDiv) {
-    // 🌟 正解！約分成功
+    // 🌟 正解！
     handleCorrectDivisor(divisor, curN, curD);
   } else {
-    // ❌ 不正解！空振り（ストライク）
+    // ❌ 不正解！（空振りストライク）
     handleWrongDivisor(divisor, curN, curD, nDiv, dDiv);
   }
 }
 
-// 約分成功
 function handleCorrectDivisor(divisor, curN, curD) {
   state.stepCount++;
-  state.isLocked = true; // 多重タップ防止ロック
+  state.isLocked = true; // アニメーション・タメ表示中ロック
 
   const newN = curN / divisor;
   const newD = curD / divisor;
 
-  // 直前の数字に斜線アニメーション
+  // 直前の数字に赤斜線アニメーション
   const currentCard = dom.stepHistory.lastElementChild || document.getElementById('step-0');
   const numSpan = currentCard.querySelector('.fraction-num');
   const denSpan = currentCard.querySelector('.fraction-den');
   if (numSpan) numSpan.classList.add('slashed');
   if (denSpan) denSpan.classList.add('slashed');
 
-  // 新しいステップ要素追加
+  // これ以上約分できるか（既約分数判定）
+  const gcdNext = calcGcd(newN, newD);
+  const isComplete = (gcdNext === 1);
+
+  // ★ 約分後の新しい分数カードを構築（完了時は completed-step で特大ハイライト！）
   const stepElem = document.createElement('div');
   stepElem.className = 'step-history-item';
   stepElem.style.display = 'flex';
@@ -375,8 +482,8 @@ function handleCorrectDivisor(divisor, curN, curD) {
       <span class="step-div-badge">÷ ${divisor}</span>
       <span class="step-arrow">➔</span>
     </div>
-    <div class="step-card active-step">
-      <div class="step-tag">${state.stepCount}回目</div>
+    <div class="step-card active-step ${isComplete ? 'completed-step' : ''}">
+      <div class="step-tag">${isComplete ? '★ 約分かんりょう！' : `${state.stepCount}回目`}</div>
       <div class="fraction-display">
         <div class="num-wrapper"><span class="fraction-num">${newN}</span></div>
         <div class="fraction-line"></div>
@@ -389,105 +496,95 @@ function handleCorrectDivisor(divisor, curN, curD) {
   state.currentNum = newN;
   state.currentDen = newD;
 
-  const gcdNext = calcGcd(newN, newD);
-  const isComplete = (gcdNext === 1);
-
   if (isComplete) {
-    if (state.stepCount === 1) {
-      // 🌟 一発特大ホームラン！（かず方式）
-      triggerHomerun(divisor);
-    } else {
-      // ⚾ タイムリー連打でホームイン！（りこ方式）
-      triggerTimelyHomein(divisor);
-    }
+    // 🎉 約分完了！
+    dom.yakubunBadge.textContent = "約分かんりょう！";
+    dom.yakubunBadge.style.background = "var(--accent-green)";
+
+    // 通算正解数加算
+    state.totalSolved++;
+    state.sessionGain++;
+    state.consecutiveHits++;
+
+    // 特殊能力習得判定
+    if (state.totalSolved >= 1000) state.abilities.add('伝説の名球会');
+    if (state.totalSolved >= 500)  state.abilities.add('三冠王スラッガー');
+    if (state.consecutiveHits >= 10) state.abilities.add('安打製造機');
+
+    // ★ ユーザー様ご要望：「約分しきったあとの分数をしっかり表示する！」
+    // 画面に「3/4」などの完成分数がドンと表示された状態で約0.8秒間しっかり見せる！
+    announce(`🎯 約分かんりょう！！【${newN}/${newD}】！`);
+    updateHud();
+    saveLocalPlayerData();
+
+    setTimeout(() => {
+      if (!state.playing) return;
+
+      if (state.stepCount === 1) {
+        // 🌟 一発特大ホームラン！（かず方式）
+        triggerHomerun(divisor, newN, newD);
+      } else {
+        // ⚾ タイムリー連打でホームイン！（りこ方式）
+        triggerTimelyHomein(divisor, newN, newD);
+      }
+    }, 800); // 0.8秒のタメで確定分数を視認！
   } else {
     // ⚾ まだ割れる ➔ クリーンヒット＆進塁！
     triggerHit(divisor, newN, newD);
   }
 }
 
-// 特大ホームラン（一撃約分・最大公約数）
-function triggerHomerun(divisor) {
-  state.homeruns++;
-  state.consecutiveHits++;
-  state.power = Math.min(99, state.power + 15);
-  state.meet = Math.min(99, state.meet + 5);
-
-  // 弾道進化
-  if (state.power >= 90) {
-    state.trajectory = 4; // アーチスト
-    state.abilities.add('超アーチスト');
-  } else if (state.power >= 75) {
-    state.trajectory = 3; // 高弾道
-    state.abilities.add('パワーヒッター');
-  } else if (state.power >= 60) {
-    state.trajectory = 2; // 中弾道
-  }
-
-  // 満塁ホームラン判定
-  const runners = state.bases.filter(b => b).length;
-  if (runners === 3) {
-    state.abilities.add('満塁男');
-  }
-  if (state.homeruns >= 4) {
-    state.abilities.add('怪物スラッガー');
-  }
-
+// 特大ホームラン演出
+function triggerHomerun(divisor, finalN, finalD) {
+  state.totalHomeruns++;
   state.bases = [false, false, false];
-  updateHud();
 
+  if (state.totalHomeruns >= 100) state.abilities.add('超アーチスト');
+  if (state.totalHomeruns >= 300) state.abilities.add('世界のホームラン王');
+
+  updateHud();
   sounds.playHomerun();
   triggerConfetti();
 
   dom.cutinTitle.textContent = "特大ホームラン！！";
-  dom.cutinStatUp.textContent = `パワー +15UP! (${getGrade(state.power)} ${state.power}) 弾道${state.trajectory}!`;
+  dom.cutinStatUp.textContent = `【${finalN}/${finalD}】一撃完成！ 通算${state.totalHomeruns}本塁打！`;
   dom.homerunCutin.classList.remove('hide');
-  announce(`🔥 カキィィン！！【÷${divisor}】一撃特大ホームラン！パワー大幅上昇！`);
+  announce(`🔥 カキィィン！！【÷${divisor}】一撃特大ホームラン！`);
 
   setTimeout(() => {
     dom.homerunCutin.classList.add('hide');
-    advanceBat();
+    setupProblem();
   }, 1300);
 }
 
-// タイムリーホームイン（段階的約分完了）
-function triggerTimelyHomein(divisor) {
-  state.hits++;
-  state.consecutiveHits++;
-  state.meet = Math.min(99, state.meet + 10);
-  state.power = Math.min(99, state.power + 6);
-
-  if (state.consecutiveHits >= 4) {
-    state.abilities.add('アベレージヒッター');
-  }
-
+// タイムリーホームイン演出
+function triggerTimelyHomein(divisor, finalN, finalD) {
+  state.totalHits++;
   state.bases = [false, false, false];
-  updateHud();
 
+  if (state.consecutiveHits >= 5) state.abilities.add('アベレージヒッター');
+
+  updateHud();
   sounds.playHomerun();
   triggerConfetti();
 
   dom.cutinTitle.textContent = "タイムリー！ホームイン！";
-  dom.cutinStatUp.textContent = `ミート +10UP! パワー +6UP!`;
+  dom.cutinStatUp.textContent = `【${finalN}/${finalD}】約分完了！ 通算${state.totalSolved}問正解！`;
   dom.homerunCutin.classList.remove('hide');
-  announce(`🎊 見事な連打で約分完了！ホームイン！選手能力UP！`);
+  announce(`🎊 見事な連打で約分完了！ホームイン！`);
 
   setTimeout(() => {
     dom.homerunCutin.classList.add('hide');
-    advanceBat();
+    setupProblem();
   }, 1300);
 }
 
-// クリーンヒット（途中約分）
+// 途中約分ヒット
 function triggerHit(divisor, newN, newD) {
-  state.hits++;
+  state.totalHits++;
   state.consecutiveHits++;
-  state.meet = Math.min(99, state.meet + 6);
 
-  if (state.bases[2]) {
-    state.meet = Math.min(99, state.meet + 2);
-    state.bases[2] = false;
-  }
+  if (state.bases[2]) state.bases[2] = false;
   state.bases[2] = state.bases[1];
   state.bases[1] = state.bases[0];
   state.bases[0] = true;
@@ -496,13 +593,13 @@ function triggerHit(divisor, newN, newD) {
   sounds.playHit();
 
   dom.stepHintBox.classList.remove('hide');
-  dom.stepHintText.textContent = `⚾ ナイスヒット！【${newN}/${newD}】まだ割れるぞ！次は何で割る？`;
-  announce(`ナイスヒット！【÷${divisor}】で約分成功！次は何で割る？`);
+  dom.stepHintText.textContent = `⚾ ナイスヒット！【${newN}/${newD}】まだ約分できるぞ！次は何で割る？`;
+  announce(`ナイスヒット！【÷${divisor}】で約分！まだ割れるぞ！`);
 
-  state.isLocked = false; // 次のボタン操作を許可
+  state.isLocked = false;
 }
 
-// 空振り（ストライク＆連打防止クールダウン）
+// 空振り（ストライク＆0.8秒連打防止ロック）
 function handleWrongDivisor(divisor, curN, curD, nDiv, dDiv) {
   state.strikes++;
   state.consecutiveHits = 0;
@@ -512,7 +609,7 @@ function handleWrongDivisor(divisor, curN, curD, nDiv, dDiv) {
   dom.screens.game.classList.add('shake');
   setTimeout(() => dom.screens.game.classList.remove('shake'), 400);
 
-  // ⏱️ 連打防止：ボタンを 0.8秒間完全ロック！
+  // ⏱️ 連打防止：ボタンを0.8秒間完全ロック！
   state.isLocked = true;
   dom.divisorGrid.classList.add('locked');
 
@@ -526,10 +623,10 @@ function handleWrongDivisor(divisor, curN, curD, nDiv, dDiv) {
 
   // 3ストライクで三振チェンジ
   if (state.strikes >= 3) {
-    state.strikeouts++;
-    announce("⚡ 3ストライク！空振り三振チェンジ！次の打席へ！");
+    state.totalStrikeouts++;
+    announce("⚡ 3ストライク！空振り三振！気を取り直して次の問題へ！");
     setTimeout(() => {
-      advanceBat();
+      setupProblem();
     }, 1100);
     return;
   }
@@ -543,24 +640,10 @@ function handleWrongDivisor(divisor, curN, curD, nDiv, dDiv) {
   }, 800);
 }
 
-// 次の打席へ進む
-function advanceBat() {
-  state.currentBat++;
-
-  if (state.currentBat > state.totalBats) {
-    // 試合終了・育成完了！
-    endGame();
-    return;
-  }
-
-  setupProblem();
-  announce(`さあ第 ${state.currentBat} 打席！落ち着いて公約数を選ぼう！`);
-}
-
 // ==========================================================================
-// ゲーム終了＆プロスピ風選手能力査定
+// 💾 きゅうけい（セーブしてリザルトへ）
 // ==========================================================================
-function endGame() {
+function handleRestSave() {
   state.playing = false;
   state.isLocked = true;
 
@@ -575,30 +658,34 @@ function showResult() {
   showScreen('result');
   sounds.playResult();
 
-  dom.resPlayerName.textContent = `${state.playerName} 選手`;
+  saveLocalPlayerData();
 
-  const finalRank = calcOverallRank();
-  dom.resFinalRank.textContent = finalRank;
-  dom.resFinalRank.className = `final-rank-circle rank-${finalRank.toLowerCase()}`;
+  dom.resPlayerName.textContent = `${state.playerName} 選手（データ保存済）`;
 
-  dom.resTrajectory.textContent = state.trajectory;
-  dom.resTrajectoryName.textContent = getTrajectoryName(state.trajectory);
+  const rank = calcOverallRank(state.totalSolved);
+  dom.resFinalRank.textContent = rank;
+  dom.resFinalRank.className = `final-rank-circle rank-${rank.toLowerCase()}`;
 
-  dom.resMeetGrade.textContent = getGrade(state.meet);
-  dom.resMeetNum.textContent = Math.min(state.meet, 99);
+  dom.resSessionGain.textContent = `+${state.sessionGain} 問`;
+  dom.resTotalSolved.textContent = `${state.totalSolved} 問`;
+  dom.resNextRemain.textContent = getNextRankHint(state.totalSolved);
 
-  dom.resPowerGrade.textContent = getGrade(state.power);
-  dom.resPowerNum.textContent = Math.min(state.power, 99);
+  const traj = calcTrajectory(state.totalSolved);
+  const curMeet = calcMeet(state.totalSolved);
+  const curPower = calcPower(state.totalHomeruns);
 
-  // 打率
-  const officialAtBats = state.homeruns + state.hits + state.strikeouts;
-  const safeHits = state.homeruns + state.hits;
-  const avg = officialAtBats > 0 ? (safeHits / officialAtBats).toFixed(3) : '.000';
-  dom.resAvg.textContent = avg.startsWith('0') ? avg.slice(1) : avg;
+  dom.resTrajectory.textContent = traj;
+  dom.resTrajectoryName.textContent = getTrajectoryName(traj);
 
-  dom.resHrCount.textContent = state.homeruns;
-  dom.resHitCount.textContent = state.hits;
-  dom.resSoCount.textContent = state.strikeouts;
+  dom.resMeetGrade.textContent = getGrade(curMeet);
+  dom.resMeetNum.textContent = curMeet;
+
+  dom.resPowerGrade.textContent = getGrade(curPower);
+  dom.resPowerNum.textContent = curPower;
+
+  dom.resHrCount.textContent = state.totalHomeruns;
+  dom.resHitCount.textContent = state.totalHits;
+  dom.resSoCount.textContent = state.totalStrikeouts;
 
   // 特殊能力タグ
   dom.resSpecialSkills.innerHTML = '';
@@ -609,40 +696,29 @@ function showResult() {
     dom.resSpecialSkills.appendChild(tag);
   });
 
-  // 育成査定スコア計算
-  const evalScore = Math.floor(
-    (state.power * 25) +
-    (state.meet * 20) +
-    (state.homeruns * 300) +
-    (state.hits * 120) -
-    (state.strikeouts * 80)
-  );
-  const finalEvalScore = Math.max(0, evalScore);
-  dom.resEvalScore.textContent = `${finalEvalScore.toLocaleString()} PTS`;
-
-  // スプレッドシート記録
-  sendScoreToGAS(finalEvalScore);
+  // スプレッドシートに上書き記録（何問解いたか）
+  sendScoreToGAS();
 }
 
-// スコア送信
-async function sendScoreToGAS(score) {
+// スプレッドシートへ上書き記録（何問解いたか）
+async function sendScoreToGAS() {
   dom.registerStatus.className = 'register-status-box';
 
   if (!api.isOnline()) {
     dom.registerStatus.classList.add('error');
-    dom.registerMsg.textContent = '⚠️ オフラインのため登録できません';
+    dom.registerMsg.textContent = '⚠️ オフラインのためローカル保存のみ完了しました';
     return;
   }
 
-  dom.registerMsg.textContent = '📡 統合スプレッドシートに選手査定を記録中...';
+  dom.registerMsg.textContent = '📡 統合スプレッドシートに通算記録を上書き中...';
 
   try {
-    const res = await api.registerScore(state.playerName, score, state.sessionToken);
+    const res = await api.registerScore(state.playerName, state.totalSolved, state.sessionToken);
     dom.registerStatus.classList.add('success');
-    dom.registerMsg.textContent = `✅ スプレッドシートに記録完了！ 全国第 ${res.rank || '-'} 位！`;
+    dom.registerMsg.textContent = `✅ スプレッドシートに上書き保存完了！ 全国第 ${res.rank || '-'} 位！`;
   } catch (err) {
     dom.registerStatus.classList.add('error');
-    dom.registerMsg.textContent = `⚠️ 登録できませんでした (${err.message})`;
+    dom.registerMsg.textContent = `⚠️ 通信エラー: ローカルに安全保存されました (${err.message})`;
   }
 }
 
@@ -665,12 +741,12 @@ async function openRankingModal() {
     dom.rankingLoading.classList.add('hide');
 
     if (!list || list.length === 0) {
-      dom.rankingTbody.innerHTML = '<tr><td colspan="3">まだ記録がありません。一番乗りで育成しよう！</td></tr>';
+      dom.rankingTbody.innerHTML = '<tr><td colspan="3">まだ記録がありません。一番乗りで記録しよう！</td></tr>';
       return;
     }
 
     let rowsHtml = '';
-    list.slice(0, 10).forEach((item, index) => {
+    list.slice(0, 15).forEach((item, index) => {
       const rank = index + 1;
       let topClass = '';
       if (rank === 1) topClass = 'top-1';
@@ -682,7 +758,7 @@ async function openRankingModal() {
         <tr class="${topClass}">
           <td>${rankBadge}</td>
           <td>${escapeHtml(item.name)}</td>
-          <td><strong>${item.score}</strong> PTS</td>
+          <td><strong>${item.score}</strong> 問</td>
         </tr>
       `;
     });
@@ -692,7 +768,7 @@ async function openRankingModal() {
       dom.myRankCard.classList.remove('hide');
       dom.myRankBadge.textContent = `あなた: 第 ${list.myRank.rank} 位`;
       dom.myRankName.textContent = escapeHtml(list.myRank.name);
-      dom.myRankScore.textContent = `${list.myRank.score} PTS`;
+      dom.myRankScore.textContent = `${list.myRank.score} 問`;
     }
   } catch (err) {
     dom.rankingLoading.classList.add('hide');
@@ -773,12 +849,27 @@ function triggerConfetti() {
 }
 
 // ==========================================================================
-// イベントリスナー
+// イベント登録
 // ==========================================================================
 function initEvents() {
-  dom.btnStart.addEventListener('click', () => {
+  // つづきからスタート
+  dom.btnResumeStart.addEventListener('click', () => {
     sounds.init();
-    startGame();
+    const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER);
+    if (lastPlayer) {
+      startTraining(lastPlayer);
+    }
+  });
+
+  // 指定の名前でスタート / 呼出
+  dom.btnNewStart.addEventListener('click', () => {
+    sounds.init();
+    const name = dom.playerNameInput.value.trim();
+    if (!name) {
+      alert("選手名（なまえ）をいれてね！");
+      return;
+    }
+    startTraining(name);
   });
 
   dom.btnTitleRanking.addEventListener('click', () => {
@@ -811,10 +902,20 @@ function initEvents() {
     });
   });
 
-  // リザルトボタン
-  dom.btnRetry.addEventListener('click', () => {
+  // 💾 きゅうけい（セーブ）ボタン
+  dom.btnSaveRest.addEventListener('click', () => {
     sounds.playClick();
-    startGame();
+    handleRestSave();
+  });
+
+  // リザルト画面
+  dom.btnContinue.addEventListener('click', () => {
+    sounds.playClick();
+    state.playing = true;
+    state.isLocked = false;
+    showScreen('game');
+    announce(`練習再開！${state.playerName}選手、公約数を見つけてスイング！`);
+    setupProblem();
   });
 
   dom.btnResultRanking.addEventListener('click', () => {
@@ -824,6 +925,7 @@ function initEvents() {
 
   dom.btnBackTitle.addEventListener('click', () => {
     sounds.playClick();
+    checkTitleSavedData();
     showScreen('title');
   });
 
@@ -832,20 +934,16 @@ function initEvents() {
     sounds.playClick();
     if (state.playing) {
       showScreen('game');
-    } else if (state.currentBat > state.totalBats) {
+    } else if (state.totalSolved > 0) {
       showScreen('result');
     } else {
       showScreen('title');
     }
   });
-
-  const savedName = localStorage.getItem('yakubun_player_name');
-  if (savedName) {
-    dom.playerNameInput.value = savedName;
-  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   initEvents();
+  checkTitleSavedData();
   showScreen('title');
 });
