@@ -1,14 +1,58 @@
-// Web Audio API による野球サウンドエフェクトエンジン（外部ファイル不要・超軽量）
+// Web Audio API による野球サウンドエフェクトエンジン
 class SoundEffectManager {
   constructor() {
     this.ctx = null;
     this.muted = false;
+
+    // 音声バッファ（外部mp3用）
+    this.hitBuffer = null;
+    this.homerunBuffer = null;
+
+    // フォールバック用 Audio要素
+    this.audioHit = null;
+    this.audioHomerun = null;
+
+    this.loadAudioFiles();
+  }
+
+  // assets/hit.mp3 と assets/homerun.mp3 をプリロード
+  async loadAudioFiles() {
+    try {
+      this.audioHit = new Audio('assets/hit.mp3');
+      this.audioHomerun = new Audio('assets/homerun.mp3');
+    } catch (e) {
+      console.warn("Audio element fallback init error:", e);
+    }
+  }
+
+  async loadAudioBuffers() {
+    if (!this.ctx) return;
+    try {
+      if (!this.hitBuffer) {
+        const res = await fetch('assets/hit.mp3');
+        const arrayBuf = await res.arrayBuffer();
+        this.hitBuffer = await this.ctx.decodeAudioData(arrayBuf);
+      }
+    } catch (e) {
+      console.warn("Could not load hit.mp3 buffer:", e);
+    }
+
+    try {
+      if (!this.homerunBuffer) {
+        const res = await fetch('assets/homerun.mp3');
+        const arrayBuf = await res.arrayBuffer();
+        this.homerunBuffer = await this.ctx.decodeAudioData(arrayBuf);
+      }
+    } catch (e) {
+      console.warn("Could not load homerun.mp3 buffer:", e);
+    }
   }
 
   init() {
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContext();
+      this.loadAudioBuffers();
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -56,13 +100,38 @@ class SoundEffectManager {
     osc.stop(t + 0.06);
   }
 
-  // クリーンヒット音（カキィン！＋進塁音）
+  // クリーンヒット音（assets/hit.mp3 を再生）
   playHit() {
     if (this.muted) return;
     this.init();
-    const t = this.ctx.currentTime;
 
-    // バットインパクト音（金属・木製混合の甲高い音）
+    // 1. AudioBufferによる超低遅延・多重再生
+    if (this.hitBuffer && this.ctx) {
+      try {
+        const source = this.ctx.createBufferSource();
+        const gain = this.ctx.createGain();
+        source.buffer = this.hitBuffer;
+        gain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+        source.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start(0);
+        return;
+      } catch (e) {
+        console.warn("Buffer play error:", e);
+      }
+    }
+
+    // 2. HTML5 Audioによるフォールバック再生
+    if (this.audioHit) {
+      try {
+        this.audioHit.currentTime = 0;
+        this.audioHit.play();
+        return;
+      } catch (e) {}
+    }
+
+    // 3. Web Audio合成音フォールバック
+    const t = this.ctx.currentTime;
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
     osc1.type = 'triangle';
@@ -74,30 +143,40 @@ class SoundEffectManager {
     gain1.connect(this.ctx.destination);
     osc1.start(t);
     osc1.stop(t + 0.12);
-
-    // 進塁チャイム（ソ - ド）
-    [783.99, 1046.50].forEach((freq, idx) => {
-      const st = t + 0.08 + idx * 0.08;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, st);
-      gain.gain.setValueAtTime(0.2, st);
-      gain.gain.linearRampToValueAtTime(0.01, st + 0.15);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(st);
-      osc.stop(st + 0.15);
-    });
   }
 
-  // 特大ホームラン音（渾身の快音「カキィィン！」＋大歓声＋トランペットファンファーレ）
+  // 特大ホームラン音（assets/homerun.mp3 を再生）
   playHomerun() {
     if (this.muted) return;
     this.init();
-    const t = this.ctx.currentTime;
 
-    // 1. 強烈なバット快音
+    // 1. AudioBufferによる超低遅延・多重再生
+    if (this.homerunBuffer && this.ctx) {
+      try {
+        const source = this.ctx.createBufferSource();
+        const gain = this.ctx.createGain();
+        source.buffer = this.homerunBuffer;
+        gain.gain.setValueAtTime(0.9, this.ctx.currentTime);
+        source.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start(0);
+        return;
+      } catch (e) {
+        console.warn("Buffer play error:", e);
+      }
+    }
+
+    // 2. HTML5 Audioによるフォールバック再生
+    if (this.audioHomerun) {
+      try {
+        this.audioHomerun.currentTime = 0;
+        this.audioHomerun.play();
+        return;
+      } catch (e) {}
+    }
+
+    // 3. Web Audio合成音フォールバック
+    const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'triangle';
@@ -109,59 +188,6 @@ class SoundEffectManager {
     gain.connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + 0.25);
-
-    // 2. スタジアムの歓声（ホワイトノイズ＋バンドパスフィルタ）
-    try {
-      const bufferSize = this.ctx.sampleRate * 1.5;
-      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-      }
-      const whiteNoise = this.ctx.createBufferSource();
-      whiteNoise.buffer = noiseBuffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(800, t);
-      filter.Q.setValueAtTime(1.5, t);
-
-      const noiseGain = this.ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.01, t);
-      noiseGain.gain.linearRampToValueAtTime(0.2, t + 0.1);
-      noiseGain.gain.linearRampToValueAtTime(0.01, t + 1.5);
-
-      whiteNoise.connect(filter);
-      filter.connect(noiseGain);
-      noiseGain.connect(this.ctx.destination);
-      whiteNoise.start(t);
-      whiteNoise.stop(t + 1.5);
-    } catch (e) {
-      // ノイズ生成失敗時はスキップ
-    }
-
-    // 3. 野球応援トランペット風ファンファーレ（ド-ミ-ソ-ド-ソ-ド！）
-    const trumpetNotes = [
-      { f: 523.25, d: 0.12, w: 0.0 }, // C5
-      { f: 659.25, d: 0.12, w: 0.1 }, // E5
-      { f: 783.99, d: 0.12, w: 0.2 }, // G5
-      { f: 1046.50, d: 0.25, w: 0.32 }, // C6
-      { f: 783.99, d: 0.12, w: 0.58 }, // G5
-      { f: 1046.50, d: 0.5, w: 0.70 }  // C6 (長め)
-    ];
-
-    trumpetNotes.forEach(note => {
-      const st = t + 0.15 + note.w;
-      const tosc = this.ctx.createOscillator();
-      const tgain = this.ctx.createGain();
-      tosc.type = 'sawtooth';
-      tosc.frequency.setValueAtTime(note.f, st);
-      tgain.gain.setValueAtTime(0.22, st);
-      tgain.gain.linearRampToValueAtTime(0.01, st + note.d);
-      tosc.connect(tgain);
-      tgain.connect(this.ctx.destination);
-      tosc.start(st);
-      tosc.stop(st + note.d);
-    });
   }
 
   // 空振り・アウト音（スイング風切り音＋低音バズ）
@@ -170,7 +196,6 @@ class SoundEffectManager {
     this.init();
     const t = this.ctx.currentTime;
 
-    // スイング風切り音
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
@@ -183,7 +208,6 @@ class SoundEffectManager {
     osc.start(t);
     osc.stop(t + 0.18);
 
-    // ブザー音
     const buzz = this.ctx.createOscillator();
     const buzzGain = this.ctx.createGain();
     buzz.type = 'sawtooth';
@@ -197,19 +221,19 @@ class SoundEffectManager {
     buzz.stop(t + 0.35);
   }
 
-  // チャンス（フィーバー）突入音（勇壮なチャンスメドレーブラス）
+  // チャンス（フィーバー）突入音
   playFever() {
     if (this.muted) return;
     this.init();
     const t = this.ctx.currentTime;
     const notes = [
-      { f: 587.33, w: 0.00 }, // D5
+      { f: 587.33, w: 0.00 },
       { f: 587.33, w: 0.08 },
       { f: 587.33, w: 0.16 },
-      { f: 783.99, w: 0.26 }, // G5
-      { f: 880.00, w: 0.38 }, // A5
-      { f: 987.77, w: 0.50 }, // B5
-      { f: 1174.66, w: 0.65 } // D6
+      { f: 783.99, w: 0.26 },
+      { f: 880.00, w: 0.38 },
+      { f: 987.77, w: 0.50 },
+      { f: 1174.66, w: 0.65 }
     ];
 
     notes.forEach(note => {
@@ -251,9 +275,9 @@ class SoundEffectManager {
     if (this.muted) return;
     this.init();
     const t = this.ctx.currentTime;
-    const chord1 = [523.25, 659.25, 783.99]; // C
-    const chord2 = [587.33, 739.99, 880.00]; // D
-    const chord3 = [523.25, 659.25, 783.99, 1046.50]; // C High
+    const chord1 = [523.25, 659.25, 783.99];
+    const chord2 = [587.33, 739.99, 880.00];
+    const chord3 = [523.25, 659.25, 783.99, 1046.50];
 
     const playChord = (chord, st, dur) => {
       chord.forEach(f => {
