@@ -1,6 +1,6 @@
 /* ==========================================================================
    プロベースボール・スピリッツ：約分スラッガー (main.js)
-   教科書（小5分数 P.117）完全準拠・野球対決約分ゲームエンジン
+   2〜20わる数ボタン式・教科書準拠リアルタイム約分エンジン
    ========================================================================== */
 
 // 最大公約数（GCD）計算
@@ -15,38 +15,39 @@ function calcGcd(a, b) {
   return a;
 }
 
-// 教科書P.117例題・練習問題＋発展問題データプール
+// 教科書P.117（117.jpg）例題・練習問題＋発展問題データプール
+// ※すべての問題において、どの約分ステップでも公約数が必ず 2〜20 の範囲内に存在することを保証
 const PROBLEM_POOL = [
   // 教科書例題・まとめ・練習問題（117.jpg）
   { num: 15, den: 20 }, // 15/20 = 3/4 (÷5)
-  { num: 18, den: 24 }, // 18/24 = 3/4 (÷6 or ÷2➔9/12➔÷3)
+  { num: 18, den: 24 }, // 18/24 = 3/4 (÷6, または ÷2➔9/12➔÷3)
   { num: 2,  den: 6  }, // 2/6 = 1/3 (÷2)
   { num: 8,  den: 10 }, // 8/10 = 4/5 (÷2)
-  { num: 16, den: 20 }, // 16/20 = 4/5 (÷4 or ÷2➔8/10)
-  { num: 9,  den: 27 }, // 9/27 = 1/3 (÷9 or ÷3➔3/9)
-  { num: 24, den: 36 }, // 24/36 = 2/3 (÷12 or 段階的)
-  { num: 40, den: 60 }, // 40/60 = 2/3 (÷20 or 段階的)
-  // 発展・公約数問題
-  { num: 4,  den: 8  }, // 1/2
-  { num: 6,  den: 8  }, // 3/4
-  { num: 6,  den: 9  }, // 2/3
-  { num: 10, den: 12 }, // 5/6
-  { num: 12, den: 15 }, // 4/5
-  { num: 10, den: 20 }, // 1/2
-  { num: 14, den: 21 }, // 2/3
-  { num: 15, den: 25 }, // 3/5
-  { num: 12, den: 18 }, // 2/3
-  { num: 20, den: 25 }, // 4/5
-  { num: 21, den: 28 }, // 3/4
-  { num: 18, den: 30 }, // 3/5
-  { num: 25, den: 30 }, // 5/6
-  { num: 30, den: 45 }, // 2/3
-  { num: 28, den: 42 }, // 2/3
-  { num: 32, den: 48 }, // 2/3
-  { num: 36, den: 48 }, // 3/4
-  { num: 45, den: 60 }, // 3/4
-  { num: 25, den: 100 },// 1/4
-  { num: 50, den: 100 } // 1/2
+  { num: 16, den: 20 }, // 16/20 = 4/5 (÷4, または ÷2➔8/10➔÷2)
+  { num: 9,  den: 27 }, // 9/27 = 1/3 (÷9, または ÷3➔3/9➔÷3)
+  { num: 24, den: 36 }, // 24/36 = 2/3 (÷12, または ÷6, ÷4, ÷3, ÷2)
+  { num: 40, den: 60 }, // 40/60 = 2/3 (÷20, または ÷10, ÷5, ÷4, ÷2)
+  // 発展・公約数問題（小5算数・必ず2〜20で約分可能）
+  { num: 4,  den: 8  }, // 1/2 (÷4 or ÷2)
+  { num: 6,  den: 8  }, // 3/4 (÷2)
+  { num: 6,  den: 9  }, // 2/3 (÷3)
+  { num: 10, den: 12 }, // 5/6 (÷2)
+  { num: 12, den: 15 }, // 4/5 (÷3)
+  { num: 10, den: 20 }, // 1/2 (÷10 or ÷2, ÷5)
+  { num: 14, den: 21 }, // 2/3 (÷7)
+  { num: 15, den: 25 }, // 3/5 (÷5)
+  { num: 12, den: 18 }, // 2/3 (÷6 or ÷2, ÷3)
+  { num: 20, den: 25 }, // 4/5 (÷5)
+  { num: 21, den: 28 }, // 3/4 (÷7)
+  { num: 18, den: 30 }, // 3/5 (÷6 or ÷2, ÷3)
+  { num: 25, den: 30 }, // 5/6 (÷5)
+  { num: 30, den: 45 }, // 2/3 (÷15 or ÷3, ÷5)
+  { num: 28, den: 42 }, // 2/3 (÷14 or ÷2, ÷7)
+  { num: 32, den: 48 }, // 2/3 (÷16 or ÷8, ÷4, ÷2)
+  { num: 36, den: 48 }, // 3/4 (÷12 or ÷6, ÷4, ÷3, ÷2)
+  { num: 45, den: 60 }, // 3/4 (÷15 or ÷5, ÷3)
+  { num: 25, den: 100 },// 1/4 (÷5➔5/20➔÷5)
+  { num: 50, den: 100 } // 1/2 (÷10➔5/10➔÷5 or ÷2➔25/50➔÷5➔÷5)
 ];
 
 // ゲームステート
@@ -69,18 +70,19 @@ const state = {
 
   // 現在の問題
   currentProblem: null,
+  origNum: 0,
+  origDen: 0,
   currentNum: 0,
   currentDen: 0,
+  stepCount: 0, // この問題で何回割ったか
   problemIndex: 0,
   problemQueue: [],
 
-  // 入力状態
-  activeSlot: 'num', // 'num' | 'den'
-  inputNum: '',
-  inputDen: ''
+  // アニメーション中ロック
+  isAnimating: false
 };
 
-// DOM要素キャッシュ
+// DOMキャッシュ
 const dom = {
   screens: {
     title: document.getElementById('screen-title'),
@@ -91,6 +93,7 @@ const dom = {
   },
   feverOverlay: document.getElementById('fever-overlay'),
   homerunCutin: document.getElementById('homerun-cutin'),
+  cutinTitle: document.getElementById('cutin-title'),
   cutinPts: document.getElementById('cutin-pts'),
   confettiCanvas: document.getElementById('confetti-canvas'),
 
@@ -118,17 +121,14 @@ const dom = {
   ],
   announcerText: document.getElementById('announcer-text'),
   pitchSpeed: document.getElementById('pitch-speed'),
-  originNum: document.getElementById('origin-num'),
-  originDen: document.getElementById('origin-den'),
-  slotNum: document.getElementById('slot-num'),
-  slotDen: document.getElementById('slot-den'),
-  valNum: document.getElementById('val-num'),
-  valDen: document.getElementById('val-den'),
+  yakubunBadge: document.getElementById('yakubun-badge'),
+  fractionNotebook: document.getElementById('fraction-notebook'),
+  displayNum: document.getElementById('display-num'),
+  displayDen: document.getElementById('display-den'),
+  stepHistory: document.getElementById('step-history'),
   stepHintBox: document.getElementById('step-hint-box'),
   stepHintText: document.getElementById('step-hint-text'),
-  yakubunStatusBadge: document.getElementById('yakubun-status-badge'),
-  btnClear: document.getElementById('btn-clear'),
-  btnSubmit: document.getElementById('btn-submit'),
+  btnHint: document.getElementById('btn-hint'),
 
   // リザルト画面
   resPlayerName: document.getElementById('res-player-name'),
@@ -171,12 +171,10 @@ function showScreen(screenName) {
   });
 }
 
-// 実況アナウンス表示
 function announce(text) {
   dom.announcerText.textContent = text;
 }
 
-// 塁状況の更新
 function updateBases() {
   dom.bases.forEach((baseEl, idx) => {
     if (state.bases[idx]) {
@@ -200,8 +198,9 @@ function startGame() {
     state.sessionToken = token;
   });
 
-  // 状態初期化
+  // 状態リセット
   state.playing = true;
+  state.isAnimating = false;
   state.timeLeft = 60;
   state.score = 0;
   state.combo = 0;
@@ -213,7 +212,7 @@ function startGame() {
   state.bases = [false, false, false];
   updateBases();
 
-  // 問題キューのシャッフル生成
+  // 問題シャッフル
   shuffleProblems();
 
   // UI初期化
@@ -228,9 +227,9 @@ function startGame() {
 
   showScreen('game');
   sounds.playPlayBall();
-  announce(`プレイボール！第1打席、${state.playerName}選手、約分して打て！`);
+  announce(`プレイボール！第1打席、${state.playerName}選手、2〜20で約分して打て！`);
 
-  // 最初の問題セット
+  // 最初の問題を出題
   nextProblem();
 
   // タイマースタート
@@ -238,7 +237,6 @@ function startGame() {
   state.timerId = setInterval(onTick, 1000);
 }
 
-// 問題のシャッフル
 function shuffleProblems() {
   const list = [...PROBLEM_POOL];
   for (let i = list.length - 1; i > 0; i--) {
@@ -249,257 +247,265 @@ function shuffleProblems() {
   state.problemIndex = 0;
 }
 
-// 次の打席（新規問題）
+// 次の問題
 function nextProblem() {
   if (state.problemIndex >= state.problemQueue.length) {
     shuffleProblems();
   }
   const prob = state.problemQueue[state.problemIndex++];
   state.currentProblem = prob;
+  state.origNum = prob.num;
+  state.origDen = prob.den;
   state.currentNum = prob.num;
   state.currentDen = prob.den;
+  state.stepCount = 0;
+  state.isAnimating = false;
 
-  // 球速ランダム演出（138〜155 km/h）
+  // 球速演出
   const speed = Math.floor(Math.random() * 18) + 138;
   dom.pitchSpeed.textContent = `${speed} km/h`;
+  dom.yakubunBadge.textContent = "約分せよ！";
+  dom.yakubunBadge.style.background = "var(--accent-red)";
 
-  renderProblem();
-  resetInputs();
-}
-
-// 問題の描画
-function renderProblem() {
-  dom.originNum.textContent = state.currentNum;
-  dom.originDen.textContent = state.currentDen;
+  // ノート初期化
+  dom.displayNum.textContent = prob.num;
+  dom.displayDen.textContent = prob.den;
+  dom.displayNum.classList.remove('slashed');
+  dom.displayDen.classList.remove('slashed');
+  dom.stepHistory.innerHTML = '';
   dom.stepHintBox.classList.add('hide');
 
-  // これ以上約分できるかチェック
-  const g = calcGcd(state.currentNum, state.currentDen);
-  if (g > 1) {
-    dom.yakubunStatusBadge.textContent = "約分せよ！";
-    dom.yakubunStatusBadge.style.background = "var(--accent-red)";
-  } else {
-    dom.yakubunStatusBadge.textContent = "約分完了！";
-    dom.yakubunStatusBadge.style.background = "var(--accent-green)";
-  }
+  // ハイライト消去
+  clearHighlights();
 }
 
-// 入力スロットのリセット
-function resetInputs() {
-  state.inputNum = '';
-  state.inputDen = '';
-  dom.valNum.textContent = '?';
-  dom.valDen.textContent = '?';
-  setActiveSlot('num');
-}
-
-// アクティブスロットの切り替え
-function setActiveSlot(slot) {
-  state.activeSlot = slot;
-  if (slot === 'num') {
-    dom.slotNum.classList.add('active');
-    dom.slotDen.classList.remove('active');
-  } else {
-    dom.slotDen.classList.add('active');
-    dom.slotNum.classList.remove('active');
-  }
+function clearHighlights() {
+  document.querySelectorAll('.div-btn').forEach(btn => btn.classList.remove('btn-highlight'));
 }
 
 // ==========================================================================
-// 入力操作（テンキー＆キーボード対応）
+// わる数ボタン（2〜20）タップ時の判定処理
 // ==========================================================================
-function handleNumInput(numStr) {
-  if (!state.playing || state.screen !== 'game') return;
+function handleDivisorClick(divisor) {
+  // ⏱️ タイムアップ中・アニメーション中は100%遮断
+  if (!state.playing || state.screen !== 'game' || state.timeLeft <= 0 || state.isAnimating) return;
 
-  sounds.playClick();
-  if (state.activeSlot === 'num') {
-    if (state.inputNum.length < 3) {
-      state.inputNum += numStr;
-      dom.valNum.textContent = state.inputNum;
-    }
-  } else {
-    if (state.inputDen.length < 3) {
-      state.inputDen += numStr;
-      dom.valDen.textContent = state.inputDen;
-    }
-  }
-}
-
-function handleClear() {
-  if (!state.playing || state.screen !== 'game') return;
-
-  sounds.playDeselect();
-  if (state.activeSlot === 'num') {
-    if (state.inputNum.length > 0) {
-      state.inputNum = state.inputNum.slice(0, -1);
-      dom.valNum.textContent = state.inputNum || '?';
-    }
-  } else {
-    if (state.inputDen.length > 0) {
-      state.inputDen = state.inputDen.slice(0, -1);
-      dom.valDen.textContent = state.inputDen || '?';
-    } else {
-      // 分母が空なら分子スロットへフォーカス移動
-      setActiveSlot('num');
-    }
-  }
-}
-
-// ==========================================================================
-// 判定ロジック（ホームラン・ヒット・空振り）
-// ==========================================================================
-function handleSubmit() {
-  // ⏱️ タイムアップ後は100%遮断
-  if (!state.playing || state.screen !== 'game' || state.timeLeft <= 0) return;
-
-  const inN = parseInt(state.inputNum, 10);
-  const inD = parseInt(state.inputDen, 10);
-
-  if (isNaN(inN) || isNaN(inD) || inN <= 0 || inD <= 0) {
-    sounds.playDeselect();
-    announce("⚠️ 分子と分母のりょうほうに数字をいれてスイングしてね！");
-    if (isNaN(inN)) setActiveSlot('num');
-    else setActiveSlot('den');
-    return;
-  }
+  clearHighlights();
 
   const curN = state.currentNum;
   const curD = state.currentDen;
 
-  // 等しい分数かチェック: inN / inD === curN / curD ➔ inN * curD === inD * curN
-  const isEqual = (inN * curD === inD * curN);
+  // 割り切れるか判定
+  const nDiv = (curN % divisor === 0);
+  const dDiv = (curD % divisor === 0);
 
-  if (isEqual) {
-    // 約分されているか（数字が小さくなっているか）
-    if (inN >= curN || inD >= curD) {
-      // 数字が同じまたは大きい
-      sounds.playDeselect();
-      announce("⚠️ 元の分数より小さい数字にして約分しよう！（ファウル）");
-      resetInputs();
-      return;
-    }
-
-    // 正しい約分！
-    // 最大公約数（既約分数）か判定
-    const gcdFinal = calcGcd(inN, inD);
-    const isIrreducible = (gcdFinal === 1);
-
-    if (isIrreducible) {
-      // 🌟 パターンA：特大ホームラン！（既約分数まで一気に約分・かず方式）
-      handleHomerun(inN, inD);
-    } else {
-      // ⚾ パターンB：クリーンヒット！（段階的約分・りこ方式）
-      handleHit(inN, inD);
-    }
+  if (nDiv && dDiv) {
+    // 🌟 正解！約分成功
+    handleCorrectDivisor(divisor, curN, curD);
   } else {
-    // ❌ 不正解：空振り三振
-    handleStrike(inN, inD);
+    // ❌ 不正解！空振り三振
+    handleWrongDivisor(divisor, curN, curD, nDiv, dDiv);
   }
 }
 
-// 特大ホームラン（一発約分）
-function handleHomerun(ansN, ansD) {
+// 約分成功処理
+function handleCorrectDivisor(divisor, curN, curD) {
+  state.stepCount++;
+  state.isAnimating = true;
+
+  const newN = curN / divisor;
+  const newD = curD / divisor;
+
+  // 直前の数字に斜線アニメーションを適用
+  const currentCard = dom.stepHistory.lastElementChild || document.getElementById('step-0');
+  const numSpan = currentCard.querySelector('.fraction-num');
+  const denSpan = currentCard.querySelector('.fraction-den');
+  if (numSpan) numSpan.classList.add('slashed');
+  if (denSpan) denSpan.classList.add('slashed');
+
+  // 新しいステップ要素（矢印＋÷Kバッジ＋新しい分数）を構築
+  const stepElem = document.createElement('div');
+  stepElem.className = 'step-history-item';
+  stepElem.style.display = 'flex';
+  stepElem.style.alignItems = 'center';
+  stepElem.style.gap = '8px';
+  stepElem.innerHTML = `
+    <div class="step-arrow-wrap">
+      <span class="step-div-badge">÷ ${divisor}</span>
+      <span class="step-arrow">➔</span>
+    </div>
+    <div class="step-card active-step">
+      <div class="step-tag">${state.stepCount}回目</div>
+      <div class="fraction-display">
+        <div class="num-wrapper"><span class="fraction-num">${newN}</span></div>
+        <div class="fraction-line"></div>
+        <div class="den-wrapper"><span class="fraction-den">${newD}</span></div>
+      </div>
+    </div>
+  `;
+  dom.stepHistory.appendChild(stepElem);
+
+  // 状態更新
+  state.currentNum = newN;
+  state.currentDen = newD;
+
+  // これ以上約分できるか（既約分数判定）
+  const gcdNext = calcGcd(newN, newD);
+  const isComplete = (gcdNext === 1);
+
+  if (isComplete) {
+    // 🎉 約分完了！
+    if (state.stepCount === 1) {
+      // 🌟 パターンA：最初の一撃で既約分数（最大公約数・かず方式）➔ 特大ホームラン！
+      triggerHomerun(divisor);
+    } else {
+      // ⚾ パターンB：段階的約分でホームイン（りこ方式）➔ タイムリーホームイン！
+      triggerTimelyHomein(divisor);
+    }
+  } else {
+    // ⚾ パターンC：まだ約分できる ➔ クリーンヒット＆進塁！
+    triggerHit(divisor, newN, newD);
+  }
+}
+
+// 特大ホームラン（一撃約分・最大公約数）
+function triggerHomerun(divisor) {
   state.homeruns++;
   state.combo++;
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
 
-  // 得点計算（フィーバー時は2倍）
   const mult = state.feverActive ? 2 : 1;
   const comboBonus = Math.min(state.combo * 20, 200);
-
-  // 走者ボーナス（満塁なら大幅加算）
-  const runnersOnBase = state.bases.filter(b => b).length;
-  const runnerBonus = runnersOnBase * 100;
-
+  const runnerBonus = state.bases.filter(b => b).length * 100;
   const addedScore = (300 + comboBonus + runnerBonus) * mult;
   state.score += addedScore;
 
-  // 走者全員生還
+  // 走者一掃
   state.bases = [false, false, false];
   updateBases();
 
   // フィーバーゲージ加算
   addFever(25);
 
-  // UI更新
   dom.scoreDisplay.textContent = state.score;
   dom.comboDisplay.textContent = state.combo;
+  dom.yakubunBadge.textContent = "約分完了！";
+  dom.yakubunBadge.style.background = "var(--accent-green)";
 
-  // サウンド＆演出
   sounds.playHomerun();
   triggerConfetti();
 
-  // ホームランカットインモーダル
+  // カットイン
+  dom.cutinTitle.textContent = "特大ホームラン！！";
   dom.cutinPts.textContent = addedScore;
   dom.homerunCutin.classList.remove('hide');
-  announce(`🔥 カキィィン！！ジャストミート！特大ホームラン！！ (+${addedScore}点)`);
+  announce(`🔥 カキィィン！！【÷${divisor}】一発ジャストミート！特大ホームラン！！ (+${addedScore}点)`);
 
   setTimeout(() => {
     if (state.playing) {
       dom.homerunCutin.classList.add('hide');
       nextProblem();
     }
-  }, 1100);
+  }, 1200);
 }
 
-// クリーンヒット（段階的約分・りこ方式）
-function handleHit(ansN, ansD) {
+// タイムリーホームイン（段階的約分完了）
+function triggerTimelyHomein(divisor) {
   state.hits++;
   state.combo++;
   if (state.combo > state.maxCombo) state.maxCombo = state.combo;
 
   const mult = state.feverActive ? 2 : 1;
-  const addedScore = 150 * mult;
+  const comboBonus = Math.min(state.combo * 15, 150);
+  const runnerBonus = state.bases.filter(b => b).length * 80;
+  const addedScore = (200 + comboBonus + runnerBonus) * mult;
   state.score += addedScore;
 
-  // 進塁処理（ランナーを1つ進める）
+  // 走者ホームイン
+  state.bases = [false, false, false];
+  updateBases();
+
+  addFever(20);
+
+  dom.scoreDisplay.textContent = state.score;
+  dom.comboDisplay.textContent = state.combo;
+  dom.yakubunBadge.textContent = "約分完了！";
+  dom.yakubunBadge.style.background = "var(--accent-green)";
+
+  sounds.playHomerun();
+  triggerConfetti();
+
+  dom.cutinTitle.textContent = "タイムリー！ホームイン！";
+  dom.cutinPts.textContent = addedScore;
+  dom.homerunCutin.classList.remove('hide');
+  announce(`🎊 見事な連打で約分完了！ホームイン！！ (+${addedScore}点)`);
+
+  setTimeout(() => {
+    if (state.playing) {
+      dom.homerunCutin.classList.add('hide');
+      nextProblem();
+    }
+  }, 1200);
+}
+
+// クリーンヒット（途中約分・まだ割れる）
+function triggerHit(divisor, newN, newD) {
+  state.hits++;
+  state.combo++;
+  if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+  const mult = state.feverActive ? 2 : 1;
+  const addedScore = 100 * mult;
+  state.score += addedScore;
+
+  // 進塁
   if (state.bases[2]) {
-    // 3塁ランナー生還ボーナス
-    state.score += 80 * mult;
+    state.score += 60 * mult;
     state.bases[2] = false;
   }
   state.bases[2] = state.bases[1];
   state.bases[1] = state.bases[0];
-  state.bases[0] = true; // 打者出塁
+  state.bases[0] = true;
   updateBases();
 
-  // フィーバーゲージ加算
   addFever(15);
 
-  // UI更新
   dom.scoreDisplay.textContent = state.score;
   dom.comboDisplay.textContent = state.combo;
 
   sounds.playHit();
 
-  // 問題を約分された分数に更新して継続！
-  state.currentNum = ansN;
-  state.currentDen = ansD;
-  renderProblem();
-  resetInputs();
-
-  // ナビゲーション表示
   dom.stepHintBox.classList.remove('hide');
-  dom.stepHintText.textContent = `⚾ ナイスヒット！【${ansN}/${ansD}】まだ約分できるぞ！二塁へ走れ！`;
-  announce(`見事な約分ヒット！まだ約分できます！さらに小さくしてホームインを目指せ！`);
+  dom.stepHintText.textContent = `⚾ ナイスヒット！【${newN}/${newD}】まだ約分できるぞ！次は何で割る？`;
+  announce(`ナイスヒット！【÷${divisor}】で約分成功！まだ割れます、次は何で割る？`);
+
+  state.isAnimating = false;
 }
 
-// 空振り三振（誤答）
-function handleStrike(inN, inD) {
+// 不正解（空振り三振）
+function handleWrongDivisor(divisor, curN, curD, nDiv, dDiv) {
   state.combo = 0;
   dom.comboDisplay.textContent = '0';
 
   sounds.playStrike();
-  announce(`⚡ 空振り三振！【${inN}/${inD}】は等しい分数ではありません！`);
 
   // 画面揺れ演出
   dom.screens.game.classList.add('shake');
   setTimeout(() => dom.screens.game.classList.remove('shake'), 400);
 
+  // 親切なフィードバックアナウンス
+  if (!nDiv && !dDiv) {
+    announce(`⚡ 空振り三振！【${divisor}】では上（${curN}）も下（${curD}）も割り切れないぞ！`);
+  } else if (!nDiv) {
+    announce(`⚡ 空振り三振！【${divisor}】では上（分子 ${curN}）が割り切れないぞ！`);
+  } else {
+    announce(`⚡ 空振り三振！【${divisor}】では下（分母 ${curD}）が割り切れないぞ！`);
+  }
+
   // ⏱️ 誤答ペナルティ（-3秒）
   state.timeLeft -= 3;
 
-  // 【スキル絶対ルール】誤答ペナルティにより timeLeft <= 0 になった瞬間、直ちに強制終了
+  // 【スキル絶対ルール】ペナルティにより timeLeft <= 0 になった瞬間、直ちに強制終了
   if (state.timeLeft <= 0) {
     state.timeLeft = 0;
     dom.timeDisplay.textContent = '0';
@@ -508,10 +514,39 @@ function handleStrike(inN, inD) {
   }
 
   dom.timeDisplay.textContent = state.timeLeft;
-  resetInputs();
 }
 
-// フィーバー（得点圏チャンス）管理
+// ヒント機能
+function handleHint() {
+  if (!state.playing || state.screen !== 'game' || state.isAnimating) return;
+
+  sounds.playClick();
+  clearHighlights();
+
+  const curN = state.currentNum;
+  const curD = state.currentDen;
+
+  // 2〜20の中で両方割り切れる公約数を探索
+  const validDivisors = [];
+  for (let k = 2; k <= 20; k++) {
+    if (curN % k === 0 && curD % k === 0) {
+      validDivisors.push(k);
+    }
+  }
+
+  if (validDivisors.length > 0) {
+    // 1つまたは複数を光らせる（最大公約数または最小公約数）
+    const target = validDivisors[validDivisors.length - 1]; // 最大公約数を推薦
+    const targetBtn = document.querySelector(`.div-btn[data-val="${target}"]`);
+    if (targetBtn) {
+      targetBtn.classList.add('btn-highlight');
+      announce(`💡 ヒント！【÷${target}】を押すと大きく約分できるぞ！`);
+      setTimeout(clearHighlights, 2200);
+    }
+  }
+}
+
+// フィーバー管理
 function addFever(amount) {
   if (state.feverActive) return;
 
@@ -529,7 +564,7 @@ function activateFever() {
   dom.feverOverlay.classList.add('active');
   announce("⚡ 得点圏チャンス（フィーバー）突入！！ 全打席得点2倍！！");
 
-  let feverRemain = 10; // 10秒間フィーバー
+  let feverRemain = 10;
   if (state.feverTimer) clearInterval(state.feverTimer);
 
   state.feverTimer = setInterval(() => {
@@ -548,14 +583,14 @@ function activateFever() {
 }
 
 // ==========================================================================
-// タイマーティックと強制終了
+// タイマー＆終了処理
 // ==========================================================================
 function onTick() {
   if (!state.playing) return;
 
   state.timeLeft--;
 
-  // 【スキル絶対ルール】毎秒タイマーでも timeLeft <= 0 なら必ず即座に endGame()
+  // 【スキル絶対ルール】毎秒タイマーでも timeLeft <= 0 なら即座に endGame()
   if (state.timeLeft <= 0) {
     state.timeLeft = 0;
     dom.timeDisplay.textContent = '0';
@@ -565,15 +600,15 @@ function onTick() {
 
   dom.timeDisplay.textContent = state.timeLeft;
 
-  // 残り10秒未満で警告アニメーション
   if (state.timeLeft <= 10) {
     dom.timerBox.classList.add('timer-warning');
   }
 }
 
-// ゲーム終了処理
 function endGame() {
   state.playing = false;
+  state.isAnimating = false;
+
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
@@ -583,13 +618,13 @@ function endGame() {
     state.feverTimer = null;
   }
 
-  // ポップアップ・警告クラスの確実な解除
+  // ポップアップ強制解除
   dom.homerunCutin.classList.add('hide');
   dom.stepHintBox.classList.add('hide');
   dom.feverOverlay.classList.remove('active');
   dom.timerBox.classList.remove('timer-warning');
+  clearHighlights();
 
-  // リザルト画面へ遷移
   showResult();
 }
 
@@ -606,12 +641,10 @@ function showResult() {
   dom.resHits.textContent = state.hits;
   dom.resMaxCombo.textContent = state.maxCombo;
 
-  // 称号判定
   const award = getAward(state.score);
   dom.resAwardTitle.textContent = award.title;
   dom.resAwardDesc.textContent = award.desc;
 
-  // スプレッドシートランキングへ送信
   sendScoreToGAS();
 }
 
@@ -619,37 +652,37 @@ function getAward(score) {
   if (score >= 4500) {
     return {
       title: "👑 伝説の三冠王スラッガー（MVP）",
-      desc: "約分の真髄を極めた球界の至宝！すべての球をスタンドへ運ぶ天才打者！"
+      desc: "公約数を瞬時に見抜く天才打者！あらゆる分数をスタンドへ叩き込む！"
     };
   } else if (score >= 3500) {
     return {
       title: "🌟 最強ホームランアーチスト",
-      desc: "最大公約数を瞬時に見抜く驚異の選球眼！特大アーチを量産！"
+      desc: "最大公約数で一撃粉砕！豪快な放物線を描く不動の主砲！"
     };
   } else if (score >= 2500) {
     return {
       title: "⚡ 頼れる主砲・クリーンナップ",
-      desc: "チャンスで必ず約分を決める勝負強さ！チームを勝利に導く大黒柱！"
+      desc: "チャンスで必ず約分を決める勝負強さ！打線を引っ張る大黒柱！"
     };
   } else if (score >= 1500) {
     return {
       title: "⚾ 巧打のクラッチヒッター",
-      desc: "段階的約分も一発約分も自在に使いこなす技ありの巧打者！"
+      desc: "段階的約分も一発約分も自在に使いこなす技ありの職人打者！"
     };
   } else if (score >= 500) {
     return {
       title: "🌱 期待のドラフト1位ルーキー",
-      desc: "約分の基本をしっかりマスター！これからの大活躍が楽しみな逸材！"
+      desc: "2や3で着実に約分！これからの成長が楽しみな大型新人！"
     };
   } else {
     return {
       title: "🧢 熱血ファーム選手",
-      desc: "もう一歩で一軍昇格！公約数を見つけて特大ホームランを狙おう！"
+      desc: "偶数なら2で割るなど、基本を掴めば必ず一軍昇格できるぞ！"
     };
   }
 }
 
-// スコア登録
+// スコア送信
 async function sendScoreToGAS() {
   dom.registerStatus.className = 'register-status-box';
 
@@ -675,9 +708,7 @@ async function sendScoreToGAS() {
   }
 }
 
-// ==========================================================================
-// ランキングモーダル表示
-// ==========================================================================
+// ランキング表示
 async function openRankingModal() {
   showScreen('ranking');
   dom.rankingOfflineAlert.classList.add('hide');
@@ -744,9 +775,7 @@ function escapeHtml(str) {
   });
 }
 
-// ==========================================================================
-// 紙吹雪アニメーション
-// ==========================================================================
+// 紙吹雪
 function triggerConfetti() {
   const canvas = dom.confettiCanvas;
   const ctx = canvas.getContext('2d');
@@ -779,7 +808,7 @@ function triggerConfetti() {
     particles.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.4; // 重力
+      p.vy += 0.4;
       p.rotation += p.rotSpeed;
       p.alpha -= 0.015;
 
@@ -806,10 +835,9 @@ function triggerConfetti() {
 }
 
 // ==========================================================================
-// イベントリスナー登録
+// イベントリスナー
 // ==========================================================================
 function initEvents() {
-  // タイトル画面
   dom.btnStart.addEventListener('click', () => {
     sounds.init();
     startGame();
@@ -837,29 +865,18 @@ function initEvents() {
     dom.btnMute.textContent = isMuted ? '🔇' : '🔊';
   });
 
-  // スロット切り替え
-  dom.slotNum.addEventListener('click', () => {
-    sounds.playClick();
-    setActiveSlot('num');
-  });
-
-  dom.slotDen.addEventListener('click', () => {
-    sounds.playClick();
-    setActiveSlot('den');
-  });
-
-  // テンキー
-  document.querySelectorAll('.num-key').forEach(btn => {
+  // わる数ボタン（2〜20）
+  document.querySelectorAll('.div-btn[data-val]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const n = btn.getAttribute('data-num');
-      handleNumInput(n);
+      const val = parseInt(btn.getAttribute('data-val'), 10);
+      handleDivisorClick(val);
     });
   });
 
-  dom.btnClear.addEventListener('click', handleClear);
-  dom.btnSubmit.addEventListener('click', handleSubmit);
+  // ヒントボタン
+  dom.btnHint.addEventListener('click', handleHint);
 
-  // リザルト画面
+  // リザルトボタン
   dom.btnRetry.addEventListener('click', () => {
     sounds.playClick();
     startGame();
@@ -875,7 +892,7 @@ function initEvents() {
     showScreen('title');
   });
 
-  // ランキング画面
+  // ランキング閉じる
   dom.btnRankingClose.addEventListener('click', () => {
     sounds.playClick();
     if (state.timeLeft > 0 && state.playing) {
@@ -887,36 +904,13 @@ function initEvents() {
     }
   });
 
-  // PCキーボード入力対応
-  window.addEventListener('keydown', e => {
-    if (state.screen !== 'game' || !state.playing) return;
-
-    if (e.key >= '0' && e.key <= '9') {
-      e.preventDefault();
-      handleNumInput(e.key);
-    } else if (e.key === 'Backspace') {
-      e.preventDefault();
-      handleClear();
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveSlot('num');
-    } else if (e.key === 'ArrowDown' || e.key === 'Tab') {
-      e.preventDefault();
-      setActiveSlot('den');
-    }
-  });
-
-  // 保存された選手名の復元
+  // 保存された名前復元
   const savedName = localStorage.getItem('yakubun_player_name');
   if (savedName) {
     dom.playerNameInput.value = savedName;
   }
 }
 
-// 起動
 window.addEventListener('DOMContentLoaded', () => {
   initEvents();
   showScreen('title');

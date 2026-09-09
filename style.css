@@ -1,6 +1,6 @@
 /* ==========================================================================
    プロベースボール・スピリッツ：約分スラッガー (style.css)
-   16:9 横画面完全固定 / タブレット最適化 (48px+ タップ領域) / GPU高速化演出
+   16:9 横画面固定 / タブレット最適化 (48px+ タップ領域) / 左右分割レイアウト
    ========================================================================== */
 
 :root {
@@ -39,7 +39,7 @@ html, body {
   justify-content: center;
 }
 
-/* 16:9 アスペクト比固定コンテナ */
+/* 16:9 固定コンテナ */
 #app-container {
   position: relative;
   width: 100vw;
@@ -89,7 +89,7 @@ html, body {
   z-index: 100;
 }
 
-/* 画面切り替え共通 */
+/* 画面共通 */
 .screen {
   position: absolute;
   top: 0;
@@ -109,6 +109,17 @@ html, body {
 
 .hide {
   display: none !important;
+}
+
+/* 揺れアニメーション */
+.shake {
+  animation: shakeAnim 0.35s ease;
+}
+
+@keyframes shakeAnim {
+  0%, 100% { transform: translate(0, 0); }
+  20%, 60% { transform: translate(-8px, 4px); }
+  40%, 80% { transform: translate(8px, -4px); }
 }
 
 /* ==========================================================================
@@ -158,26 +169,26 @@ html, body {
   font-size: 0.95rem;
   font-weight: bold;
   letter-spacing: 1px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .game-logo {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .logo-sub {
   font-family: var(--font-digital);
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   letter-spacing: 4px;
   color: var(--gold);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
 }
 
 .logo-main {
-  font-size: 3.4rem;
+  font-size: 3.3rem;
   font-weight: 900;
   letter-spacing: 3px;
   background: linear-gradient(180deg, #ffffff 0%, #ffd23f 50%, #ff7700 100%);
@@ -188,7 +199,7 @@ html, body {
 }
 
 .logo-tag {
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: #fff;
   background: rgba(255, 51, 75, 0.85);
   padding: 3px 16px;
@@ -197,15 +208,15 @@ html, body {
   letter-spacing: 1px;
 }
 
-/* 選手名入力カード */
+/* 選手名入力 */
 .player-input-card {
   background: var(--bg-card);
   border: 2px solid rgba(255, 210, 63, 0.5);
   border-radius: 12px;
-  padding: 14px 24px;
+  padding: 12px 24px;
   width: 100%;
   max-width: 440px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
 }
 
@@ -217,12 +228,12 @@ html, body {
   font-size: 0.95rem;
   color: var(--gold);
   font-weight: bold;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 #player-name {
   width: 100%;
-  height: 48px;
+  height: 46px;
   font-size: 1.3rem;
   text-align: center;
   font-weight: bold;
@@ -231,7 +242,6 @@ html, body {
   border: 1.5px solid var(--accent-blue);
   border-radius: 8px;
   outline: none;
-  transition: border-color 0.2s;
 }
 
 #player-name:focus {
@@ -242,7 +252,7 @@ html, body {
 .name-hint {
   font-size: 0.75rem;
   color: var(--text-sub);
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 /* タイトルボタン */
@@ -259,13 +269,13 @@ html, body {
   justify-content: center;
   gap: 8px;
   font-family: var(--font-family);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
   border: none;
-  min-height: 50px;
-  padding: 0 24px;
+  min-height: 48px;
+  padding: 0 22px;
   transition: transform 0.1s, filter 0.2s, background 0.2s;
   touch-action: manipulation;
 }
@@ -304,8 +314,8 @@ html, body {
 
 .btn-mute {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 14px;
+  right: 14px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -343,68 +353,66 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(180deg, rgba(8, 14, 22, 0.85) 0%, rgba(8, 14, 22, 0.45) 50%, rgba(8, 14, 22, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(8, 14, 22, 0.88) 0%, rgba(8, 14, 22, 0.6) 50%, rgba(8, 14, 22, 0.94) 100%);
 }
 
 /* 上部スコアボードバー */
 .scoreboard-bar {
   position: absolute;
   top: 8px;
-  left: 12px;
-  right: 12px;
-  height: 60px;
+  left: 10px;
+  right: 10px;
+  height: 56px;
   z-index: 15;
-  background: rgba(10, 18, 30, 0.92);
+  background: rgba(10, 18, 30, 0.94);
   border: 1.5px solid rgba(255, 210, 63, 0.6);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
 }
 
-/* BSO / 走者 */
 .stadium-bso {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .inning-display {
   font-family: var(--font-digital);
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   color: var(--gold);
 }
 
 .score-diff {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   background: var(--accent-red);
   color: #fff;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-family: var(--font-family);
+  padding: 2px 7px;
+  border-radius: 5px;
   font-weight: bold;
 }
 
 .runner-bases {
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
 }
 
 .base {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   background: rgba(255, 255, 255, 0.25);
   border: 1px solid #aaa;
   transform: rotate(45deg);
 }
 
-.base-1 { top: 11px; right: 0; }
-.base-2 { top: 0; left: 11px; }
-.base-3 { top: 11px; left: 0; }
+.base-1 { top: 10px; right: 0; }
+.base-2 { top: 0; left: 10px; }
+.base-3 { top: 10px; left: 0; }
 
 .base.occupied {
   background: var(--gold);
@@ -418,22 +426,22 @@ html, body {
   align-items: center;
   gap: 8px;
   background: rgba(0, 0, 0, 0.7);
-  padding: 4px 18px;
+  padding: 3px 16px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .timer-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-sub);
   font-weight: bold;
 }
 
 .time-value {
   font-family: var(--font-digital);
-  font-size: 2rem;
+  font-size: 1.9rem;
   color: #00ffaa;
-  min-width: 45px;
+  min-width: 42px;
   text-align: center;
 }
 
@@ -451,7 +459,7 @@ html, body {
   100% { transform: scale(1.05); }
 }
 
-/* スコア＆コンボ＆フィーバー */
+/* スコア＆コンボ */
 .score-gauge-box {
   display: flex;
   flex-direction: column;
@@ -462,23 +470,23 @@ html, body {
 .score-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .score-item {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 5px;
 }
 
 .score-item .label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-sub);
 }
 
 .score-item .value {
   font-family: var(--font-digital);
-  font-size: 1.6rem;
+  font-size: 1.5rem;
 }
 
 .highlight-score {
@@ -490,7 +498,7 @@ html, body {
 }
 
 .fever-bar-wrap {
-  width: 140px;
+  width: 130px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -500,12 +508,11 @@ html, body {
   font-size: 0.65rem;
   color: var(--gold);
   font-weight: bold;
-  letter-spacing: 0.5px;
 }
 
 .fever-bar-track {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid #555;
   border-radius: 4px;
@@ -521,269 +528,303 @@ html, body {
 /* 実況テロップ */
 .announcer-box {
   position: absolute;
-  top: 76px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 68px;
+  left: 10px;
+  right: 10px;
   z-index: 15;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   border-left: 4px solid var(--gold);
-  padding: 5px 20px;
+  padding: 4px 16px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: bold;
   color: #fff;
   white-space: nowrap;
-  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
 }
 
-/* 中央：対決ゾーン */
-.battle-zone {
+/* ==========================================================================
+   左右分割レイアウト（16:9フル活用）
+   ========================================================================== */
+.game-main-split {
   position: absolute;
-  top: 112px;
-  bottom: 140px;
-  left: 20px;
-  right: 20px;
+  top: 102px;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
   z-index: 15;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
+  gap: 12px;
 }
 
-/* 投球カード（問題分数） */
-.pitch-ball-card {
-  background: rgba(14, 25, 42, 0.9);
-  border: 2px solid var(--accent-blue);
+/* 左側：打席＆約分ノートゾーン */
+.battle-left-zone {
+  flex: 1;
+  background: rgba(14, 25, 42, 0.92);
+  border: 2px solid rgba(0, 210, 255, 0.4);
   border-radius: 12px;
-  padding: 12px 24px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-  min-width: 180px;
+  justify-content: space-between;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
 }
 
-.pitch-label {
+.pitch-header {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  font-size: 0.8rem;
-  font-weight: bold;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  padding-bottom: 4px;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 6px;
 }
 
 .pitch-speed {
-  color: var(--accent-blue);
   font-family: var(--font-digital);
+  color: var(--accent-blue);
+  font-size: 1.1rem;
 }
 
-.pitch-type {
-  color: var(--gold);
+.pitch-badge {
+  background: var(--accent-red);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 2px 10px;
+  border-radius: 12px;
 }
 
-/* 分数共通スタイル */
-.fraction-box {
+/* 教科書風・約分ノートコンテナ */
+.fraction-notebook {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 0;
+}
+
+/* ステップカード（分数の塊） */
+.step-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 8px 16px;
+  min-width: 90px;
+  animation: cardFadeIn 0.3s ease;
 }
 
-.origin-fraction .fraction-num,
-.origin-fraction .fraction-den {
-  font-family: var(--font-digital);
-  font-size: 3.2rem;
-  color: #ffffff;
-  min-height: 52px;
+@keyframes cardFadeIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.step-card.active-step {
+  border-color: var(--gold);
+  background: rgba(255, 210, 63, 0.08);
+  box-shadow: 0 0 15px var(--gold-glow);
+}
+
+.step-tag {
+  font-size: 0.7rem;
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+
+.fraction-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.num-wrapper,
+.den-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 48px;
+}
+
+.fraction-num,
+.fraction-den {
+  font-family: var(--font-digital);
+  font-size: 3rem;
+  color: #ffffff;
+  line-height: 1;
 }
 
 .fraction-line {
   width: 100%;
-  min-width: 90px;
-  height: 5px;
+  min-width: 60px;
+  height: 4px;
   background: #ffffff;
-  border-radius: 3px;
-  margin: 4px 0;
+  border-radius: 2px;
+  margin: 3px 0;
 }
 
-/* 対決サイン・矢印 */
-.fraction-vs-sign {
+/* 教科書風・赤斜線取り消し線（／）アニメーション */
+.slashed {
+  position: relative;
+  color: #888888 !important;
+}
+
+.slashed::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -10%;
+  width: 120%;
+  height: 3.5px;
+  background: var(--accent-red);
+  transform: rotate(-35deg);
+  border-radius: 2px;
+  animation: slashStrike 0.2s ease-out forwards;
+}
+
+@keyframes slashStrike {
+  0% { width: 0%; left: 50%; }
+  100% { width: 120%; left: -10%; }
+}
+
+/* ステップ履歴（矢印＋割った数バッジ） */
+.step-history {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step-arrow-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
 }
 
-.yakubun-arrow {
-  font-size: 2.4rem;
-  color: var(--gold);
-  text-shadow: 0 0 10px var(--gold);
-  animation: arrowAnim 1s infinite alternate;
-}
-
-@keyframes arrowAnim {
-  0% { transform: translateX(-4px); }
-  100% { transform: translateX(4px); }
-}
-
-.yakubun-status-badge {
-  background: var(--accent-red);
-  color: #fff;
+.step-div-badge {
+  background: var(--gold);
+  color: #000;
+  font-family: var(--font-digital);
   font-size: 0.85rem;
   font-weight: bold;
-  padding: 3px 10px;
-  border-radius: 8px;
+  padding: 2px 7px;
+  border-radius: 6px;
   white-space: nowrap;
 }
 
-/* バッター解答カード */
-.bat-answer-card {
-  background: rgba(20, 32, 50, 0.95);
-  border: 2px solid var(--gold);
-  border-radius: 12px;
-  padding: 12px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 8px 24px rgba(255, 210, 63, 0.25);
-  min-width: 180px;
+.step-arrow {
+  font-size: 1.6rem;
+  color: var(--accent-blue);
 }
 
-.slot-instruction {
-  font-size: 0.8rem;
-  color: var(--text-sub);
-  margin-bottom: 8px;
-  font-weight: bold;
-}
-
-/* 入力スロットボタン（48px以上の超快適タップ領域） */
-.fraction-slot {
-  width: 100px;
-  height: 56px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 2px dashed #64748b;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.fraction-slot.active {
-  border: 2.5px solid var(--gold);
-  background: rgba(255, 210, 63, 0.15);
-  box-shadow: 0 0 14px var(--gold-glow);
-}
-
-.slot-num-val,
-.slot-den-val {
-  font-family: var(--font-digital);
-  font-size: 2.8rem;
-  color: #fff;
-}
-
-.fraction-slot.active .slot-num-val,
-.fraction-slot.active .slot-den-val {
-  color: var(--gold);
-}
-
-/* 途中約分ナビゲーション */
+/* ヒントメッセージ */
 .step-hint-box {
-  position: absolute;
-  bottom: 142px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
   background: linear-gradient(90deg, #0284c7, #2563eb);
   color: #fff;
-  padding: 6px 20px;
-  border-radius: 20px;
-  font-size: 0.95rem;
+  padding: 6px 14px;
+  border-radius: 14px;
+  font-size: 0.85rem;
   font-weight: bold;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  text-align: center;
   border: 1px solid #93c5fd;
   animation: bounceIn 0.3s ease;
 }
 
 @keyframes bounceIn {
-  0% { transform: translate(-50%, 10px); opacity: 0; }
-  100% { transform: translate(-50%, 0); opacity: 1; }
+  0% { transform: translateY(6px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
-/* 下部：キーパッドゾーン */
-.keypad-zone {
-  position: absolute;
-  bottom: 10px;
-  left: 12px;
-  right: 12px;
-  height: 120px;
-  z-index: 20;
+/* ==========================================================================
+   右側：2〜20 わる数パレット（5列×4行）
+   ========================================================================== */
+.keypad-right-zone {
+  width: 53%;
+  background: rgba(10, 18, 30, 0.94);
+  border: 2px solid rgba(255, 210, 63, 0.45);
+  border-radius: 12px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+}
+
+.palette-header {
   display: flex;
   justify-content: center;
+  margin-bottom: 6px;
 }
 
-.keypad-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
-  width: 100%;
-  max-width: 760px;
-  height: 100%;
-}
-
-.key-btn {
-  border-radius: 8px;
+.palette-title {
+  font-size: 0.9rem;
   font-weight: bold;
-  border: none;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+.divisor-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 6px;
+}
+
+/* わる数ボタン（48px以上のゆったりタップ領域） */
+.div-btn {
+  font-family: var(--font-digital);
+  font-size: 1.35rem;
+  color: #ffffff;
+  background: linear-gradient(180deg, #243447 0%, #15202b 100%);
+  border: 1.5px solid #384f68;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px; /* スキル絶対ルール: 48px以上タップ領域 */
-  transition: transform 0.08s, filter 0.15s;
+  min-height: 48px; /* スキル絶対ルール */
+  box-shadow: 0 3px 0 #0d151c;
+  transition: transform 0.08s, filter 0.15s, background 0.2s, border-color 0.2s;
   touch-action: manipulation;
 }
 
-.key-btn:active {
-  transform: scale(0.94);
+.div-btn:active {
+  transform: scale(0.93) translateY(2px);
+  box-shadow: 0 1px 0 #0d151c;
 }
 
-.num-key {
-  font-family: var(--font-digital);
-  font-size: 1.8rem;
-  background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+/* ヒントボタン枠 */
+.hint-btn {
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: bold;
   color: #fff;
-  border: 1px solid #4a5568;
-  box-shadow: 0 3px 0 #111;
+  background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+  border: 1.5px solid #2dd4bf;
+  box-shadow: 0 3px 0 #042f2e;
 }
 
-.clear-key {
-  font-size: 1rem;
-  background: linear-gradient(180deg, #475569 0%, #334155 100%);
-  color: #cbd5e1;
-  border: 1px solid #64748b;
-  box-shadow: 0 3px 0 #1e293b;
+/* ヒント時ハイライト点滅 */
+.div-btn.btn-highlight {
+  border-color: var(--gold) !important;
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
+  box-shadow: 0 0 18px var(--gold-glow), 0 3px 0 #78350f !important;
+  animation: hintPulse 0.6s infinite alternate;
 }
 
-.submit-key {
-  grid-column: span 2;
-  font-size: 1.15rem;
-  background: linear-gradient(180deg, #ff9f1c 0%, #e63946 100%);
-  color: #fff;
-  border: 1px solid #ffd23f;
-  box-shadow: 0 4px 0 #9b111e, 0 4px 12px rgba(230, 57, 70, 0.5);
+@keyframes hintPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.06); }
 }
 
 /* ==========================================================================
@@ -810,8 +851,8 @@ html, body {
 
 .homerun-content {
   position: relative;
-  width: 80%;
-  max-width: 680px;
+  width: 78%;
+  max-width: 660px;
   border: 3px solid var(--gold);
   border-radius: 12px;
   overflow: hidden;
@@ -837,7 +878,7 @@ html, body {
   left: 0;
   right: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.95) 60%);
-  padding: 20px 10px 14px;
+  padding: 16px 10px 12px;
   text-align: center;
 }
 
@@ -849,7 +890,7 @@ html, body {
 }
 
 .homerun-text-main {
-  font-size: 2.6rem;
+  font-size: 2.5rem;
   font-weight: 900;
   color: var(--gold);
   text-shadow: 0 0 15px rgba(255, 210, 63, 0.8);
@@ -859,7 +900,7 @@ html, body {
 .homerun-bonus-pts {
   font-family: var(--font-digital);
   color: #00ffaa;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
 }
 
 /* ==========================================================================
@@ -873,7 +914,7 @@ html, body {
   background: var(--bg-card);
   border: 2px solid var(--gold);
   border-radius: 14px;
-  padding: 20px 28px;
+  padding: 18px 26px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -883,16 +924,16 @@ html, body {
 .result-header {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  padding-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .result-trophy-img {
-  width: 74px;
-  height: 74px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   border: 2px solid var(--gold);
   object-fit: cover;
@@ -906,115 +947,107 @@ html, body {
 .game-set-badge {
   display: inline-block;
   font-family: var(--font-digital);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   background: var(--accent-red);
   color: #fff;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: 4px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .result-title {
-  font-size: 1.8rem;
+  font-size: 1.7rem;
   color: #fff;
 }
 
 .result-player-name {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: var(--gold);
   font-weight: bold;
 }
 
-/* 成績表 */
 .result-stats-board {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .res-stat-col {
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-sub);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .stat-val {
   font-family: var(--font-digital);
-  font-size: 1.9rem;
+  font-size: 1.8rem;
   color: #fff;
 }
 
 .stat-val.highlight {
   color: var(--gold);
-  font-size: 2.3rem;
+  font-size: 2.2rem;
 }
 
 .stat-val small {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
   font-weight: normal;
   color: var(--text-sub);
 }
 
-/* 称号 */
 .result-title-award {
   width: 100%;
   background: linear-gradient(90deg, rgba(255, 210, 63, 0.12), rgba(255, 51, 75, 0.12));
   border: 1px solid var(--gold);
   border-radius: 8px;
-  padding: 8px 16px;
+  padding: 6px 14px;
   text-align: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .award-label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--gold);
   font-weight: bold;
 }
 
 .award-title {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 900;
   color: #fff;
   letter-spacing: 1px;
 }
 
 .award-desc {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-sub);
 }
 
-/* スプレッドシート登録状況 */
 .register-status-box {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
   color: var(--accent-blue);
-  margin-bottom: 14px;
-  min-height: 22px;
+  margin-bottom: 12px;
+  min-height: 20px;
 }
 
-.register-status-box.error {
-  color: var(--accent-red);
-}
-
-.register-status-box.success {
-  color: var(--accent-green);
-}
+.register-status-box.error { color: var(--accent-red); }
+.register-status-box.success { color: var(--accent-green); }
 
 .result-buttons {
   display: flex;
@@ -1029,7 +1062,7 @@ html, body {
 }
 
 /* ==========================================================================
-   5. ランキング＆あそびかたモーダル
+   5. モーダル
    ========================================================================== */
 .modal-card {
   position: relative;
@@ -1040,16 +1073,16 @@ html, body {
   background: var(--bg-card);
   border: 2px solid var(--accent-blue);
   border-radius: 14px;
-  padding: 20px 24px;
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
 }
 
 .modal-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   color: var(--gold);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   text-align: center;
 }
 
@@ -1057,73 +1090,58 @@ html, body {
   overflow-y: auto;
   max-height: 380px;
   padding-right: 6px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .howto-rule-box {
   background: rgba(0, 0, 0, 0.5);
   border-left: 4px solid var(--accent-blue);
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .howto-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .howto-card {
   background: rgba(0, 0, 0, 0.6);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #334155;
 }
 
 .howto-badge {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.howto-badge.gold {
-  background: var(--gold);
-  color: #000;
-}
+.howto-badge.gold { background: var(--gold); color: #000; }
+.howto-badge.blue { background: var(--accent-blue); color: #000; }
 
-.howto-badge.blue {
-  background: var(--accent-blue);
-  color: #000;
-}
-
-.howto-card h4 {
-  font-size: 1rem;
-  margin-bottom: 6px;
-}
-
-.howto-card p {
-  font-size: 0.8rem;
-  color: var(--text-sub);
-  line-height: 1.4;
-}
+.howto-card h4 { font-size: 0.95rem; margin-bottom: 4px; }
+.howto-card p { font-size: 0.78rem; color: var(--text-sub); line-height: 1.4; }
 
 .howto-formula {
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 4px 8px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--gold);
   text-align: center;
 }
 
 .howto-tips {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-sub);
   line-height: 1.5;
   background: rgba(255, 51, 75, 0.1);
@@ -1132,28 +1150,21 @@ html, body {
   border-radius: 6px;
 }
 
-/* ランキングモーダル詳細 */
+/* ランキングモーダル */
 .ranking-header {
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.ranking-header h2 {
-  font-size: 1.7rem;
-  color: var(--gold);
-}
-
-.ranking-sub {
-  font-size: 0.8rem;
-  color: var(--text-sub);
-}
+.ranking-header h2 { font-size: 1.6rem; color: var(--gold); }
+.ranking-sub { font-size: 0.75rem; color: var(--text-sub); }
 
 .offline-alert {
   background: rgba(255, 51, 75, 0.18);
   border: 1.5px solid var(--accent-red);
   color: #ff8896;
-  font-size: 0.85rem;
-  padding: 8px 12px;
+  font-size: 0.8rem;
+  padding: 6px 10px;
   border-radius: 6px;
   text-align: center;
   font-weight: bold;
@@ -1163,8 +1174,8 @@ html, body {
 .ranking-list-wrap {
   flex: 1;
   overflow-y: auto;
-  max-height: 280px;
-  margin-bottom: 14px;
+  max-height: 260px;
+  margin-bottom: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
 }
@@ -1178,28 +1189,23 @@ html, body {
 .ranking-table th {
   background: #1e293b;
   color: var(--text-sub);
-  font-size: 0.85rem;
-  padding: 8px 10px;
+  font-size: 0.8rem;
+  padding: 6px 8px;
   position: sticky;
   top: 0;
 }
 
 .ranking-table td {
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .ranking-table tr.top-1 td { color: var(--gold); font-weight: bold; }
 .ranking-table tr.top-2 td { color: #e2e8f0; font-weight: bold; }
 .ranking-table tr.top-3 td { color: #cd7f32; font-weight: bold; }
 
-.ranking-loading {
-  text-align: center;
-  padding: 24px;
-  color: var(--text-sub);
-  font-size: 0.9rem;
-}
+.ranking-loading { text-align: center; padding: 20px; color: var(--text-sub); font-size: 0.85rem; }
 
 .my-rank-card {
   display: flex;
@@ -1208,16 +1214,10 @@ html, body {
   background: rgba(0, 210, 255, 0.12);
   border: 1px solid var(--accent-blue);
   border-radius: 6px;
-  padding: 8px 16px;
-  margin-bottom: 12px;
+  padding: 6px 14px;
+  margin-bottom: 10px;
   font-weight: bold;
 }
 
-.my-rank-badge {
-  color: var(--accent-blue);
-}
-
-.my-rank-score {
-  font-family: var(--font-digital);
-  color: var(--gold);
-}
+.my-rank-badge { color: var(--accent-blue); }
+.my-rank-score { font-family: var(--font-digital); color: var(--gold); }

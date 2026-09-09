@@ -19,7 +19,7 @@
         <img src="assets/homerun_blast.jpg" alt="ホームラン！" class="homerun-img">
         <div class="homerun-banner">
           <div class="homerun-text-sub">JACKPOT SLAM!</div>
-          <div class="homerun-text-main">特大ホームラン！！</div>
+          <div class="homerun-text-main" id="cutin-title">特大ホームラン！！</div>
           <div class="homerun-bonus-pts">+<span id="cutin-pts">300</span> PTS</div>
         </div>
       </div>
@@ -40,7 +40,7 @@
         <h1 class="game-logo">
           <span class="logo-sub">PRO BASEBALL SPIRITS</span>
           <span class="logo-main">約分スラッガー</span>
-          <span class="logo-tag">〜目指せ！三冠王ホームランバッター〜</span>
+          <span class="logo-tag">〜2〜20で割ってホームランを放て！〜</span>
         </h1>
 
         <!-- 児童ニックネーム入力 -->
@@ -77,28 +77,28 @@
         <h2 class="modal-title">⚾ あそびかた＆約分のコツ</h2>
         <div class="howto-body">
           <div class="howto-rule-box">
-            <h3>🎯 ルール</h3>
-            <p>ピッチャーが投げてくる分数を、<strong>分母と分子を同じ数（公約数）でわって約分</strong>しよう！</p>
+            <h3>🎯 ルール：2〜20のボタンを押して上も下も割ろう！</h3>
+            <p>ピッチャーが投げてくる分数の<strong>分子（上）と分母（下）のりょうほうを割り切れるボタン</strong>をタップして約分しよう！</p>
           </div>
 
           <div class="howto-grid">
             <div class="howto-card card-homerun">
               <div class="howto-badge gold">かず方式</div>
-              <h4>🌟 特大ホームラン！（一発約分）</h4>
-              <p>最大公約数で一気にできるだけ小さい分数（既約分数）に約分すると<strong>特大ホームラン</strong>！大量得点＋チャンス突入！</p>
-              <div class="howto-formula">18/24 ➔ <strong>3/4</strong> (÷6) 💥</div>
+              <h4>🌟 一発ホームラン！（最大公約数）</h4>
+              <p>一撃でこれ以上割れない分数にすると<strong>特大ホームラン</strong>！大量得点＋チャンスゲージUP！</p>
+              <div class="howto-formula">18/24 ➔ <strong>[ 6 ]</strong> ボタン一発！ 💥</div>
             </div>
             <div class="howto-card card-hit">
               <div class="howto-badge blue">りこ方式</div>
-              <h4>⚾ クリーンヒット！（だんかい約分）</h4>
-              <p>2や3で割ってもOK！ヒットを打って出塁し、<strong>そのままもう一度約分</strong>してホームインを目指せるよ！</p>
-              <div class="howto-formula">18/24 ➔ <strong>9/12</strong> (÷2) ➔ <strong>3/4</strong> (÷3) 🏃</div>
+              <h4>⚾ 繋ぎのヒット！（だんかい約分）</h4>
+              <p>偶数だからまず[ 2 ]、次は[ 3 ]と小さく割っていってもOK！ヒットで出塁してホームインを目指せるよ！</p>
+              <div class="howto-formula">18/24 ➔ <strong>[ 2 ]</strong> ➔ 9/12 ➔ <strong>[ 3 ]</strong> ➔ 3/4 🏃</div>
             </div>
           </div>
 
           <div class="howto-tips">
-            <p>⚠️ <strong>注意</strong>：約分できない数字を入れると「空振り三振」で<strong>のこり時間がマイナス3秒</strong>！</p>
-            <p>🔥 <strong>チャンス（フィーバー）</strong>：連続正解で全打席得点2倍！</p>
+            <p>⚠️ <strong>注意</strong>：どちらかが割り切れないボタンを押すと「空振り三振」で<strong>のこり時間がマイナス3秒</strong>！</p>
+            <p>💡 <strong>ヒントボタン</strong>：迷ったら[💡ヒント]を押すと割れる数が光るよ！</p>
           </div>
         </div>
         <button id="btn-howto-close" class="btn btn-primary">わかった！（もどる）</button>
@@ -107,7 +107,7 @@
 
     <!-- ==================== 3. 試合（ゲーム）画面 ==================== -->
     <section id="screen-game" class="screen hide">
-      <!-- スタジアム・対決背景 -->
+      <!-- スタジアム背景 -->
       <div class="game-bg-wrapper">
         <img src="assets/pitcher_duel.jpg" alt="ピッチャー対決" class="game-bg">
         <div class="game-bg-overlay"></div>
@@ -115,9 +115,9 @@
 
       <!-- 上部スコアボード・インフォメーションバー -->
       <div class="scoreboard-bar">
-        <!-- 試合状況（イニング・走者・BSO） -->
+        <!-- 試合状況（イニング・走者） -->
         <div class="stadium-bso">
-          <div class="inning-display"><span id="inning-text">9回裏</span> <span class="score-diff">チャンス!</span></div>
+          <div class="inning-display"><span id="inning-text">9回裏</span> <span class="score-diff">得点圏!</span></div>
           <div class="runner-bases">
             <div id="base-2" class="base base-2"></div>
             <div id="base-3" class="base base-3"></div>
@@ -157,71 +157,71 @@
       <!-- 実況アナウンステロップ -->
       <div id="announcer-box" class="announcer-box">
         <span class="announcer-icon">📢</span>
-        <span id="announcer-text" class="announcer-text">さあ打席に立ちました！ピッチャー第一球を投げます！</span>
+        <span id="announcer-text" class="announcer-text">さあ第1球！上も下も割れる公約数ボタンを選んでスイング！</span>
       </div>
 
-      <!-- 中央：打席・問題表示ゾーン -->
-      <div class="battle-zone">
-        <!-- ピッチャーの投球問題分数 -->
-        <div class="pitch-ball-card">
-          <div class="pitch-label">
-            <span class="pitch-speed" id="pitch-speed">148 km/h</span>
-            <span class="pitch-type" id="pitch-type">約分ボール</span>
+      <!-- メインエリア：左右分割レイアウト（16:9最適化） -->
+      <div class="game-main-split">
+        <!-- 左側：打席＆約分ノートゾーン -->
+        <div class="battle-left-zone">
+          <div class="pitch-header">
+            <span class="pitch-speed" id="pitch-speed">150 km/h</span>
+            <span class="pitch-badge" id="yakubun-badge">約分せよ！</span>
           </div>
-          <div class="fraction-box origin-fraction">
-            <div class="fraction-num" id="origin-num">18</div>
-            <div class="fraction-line"></div>
-            <div class="fraction-den" id="origin-den">24</div>
+
+          <!-- 教科書風・約分ステップノート -->
+          <div class="fraction-notebook" id="fraction-notebook">
+            <!-- 投球された元の分数 -->
+            <div class="step-card" id="step-0">
+              <div class="step-tag">最初の球</div>
+              <div class="fraction-display">
+                <div class="num-wrapper"><span class="fraction-num" id="display-num">18</span></div>
+                <div class="fraction-line"></div>
+                <div class="den-wrapper"><span class="fraction-den" id="display-den">24</span></div>
+              </div>
+            </div>
+
+            <!-- 約分ステップ履歴（JSで矢印と新しい分数を追加表示） -->
+            <div class="step-history" id="step-history"></div>
           </div>
-        </div>
 
-        <!-- 矢印・バットインパクトサイン -->
-        <div class="fraction-vs-sign">
-          <div class="yakubun-arrow">➔</div>
-          <div class="yakubun-status-badge" id="yakubun-status-badge">約分せよ！</div>
-        </div>
-
-        <!-- バッターの解答入力分数（分子・分母ポチポチスロット） -->
-        <div class="bat-answer-card">
-          <div class="slot-instruction">ポチポチ数字をいれよう</div>
-          <div class="fraction-box answer-fraction">
-            <!-- 分子入力枠 -->
-            <button id="slot-num" class="fraction-slot active" data-target="num">
-              <span class="slot-num-val" id="val-num">?</span>
-            </button>
-            <div class="fraction-line"></div>
-            <!-- 分母入力枠 -->
-            <button id="slot-den" class="fraction-slot" data-target="den">
-              <span class="slot-den-val" id="val-den">?</span>
-            </button>
+          <!-- 途中約分の応援メッセージ -->
+          <div id="step-hint-box" class="step-hint-box hide">
+            <span id="step-hint-text">ナイスヒット！まだ割れるぞ！次は何で割る？</span>
           </div>
         </div>
-      </div>
 
-      <!-- ヒント・途中約分ナビゲーション -->
-      <div id="step-hint-box" class="step-hint-box hide">
-        <span id="step-hint-text">ナイスヒット！まだ割れるぞ、もう一度約分してホームインだ！</span>
-      </div>
-
-      <!-- 下部：テンキー＆決定・消去コントローラー -->
-      <div class="keypad-zone">
-        <div class="keypad-grid">
-          <button class="key-btn num-key" data-num="1">1</button>
-          <button class="key-btn num-key" data-num="2">2</button>
-          <button class="key-btn num-key" data-num="3">3</button>
-          <button class="key-btn num-key" data-num="4">4</button>
-          <button class="key-btn num-key" data-num="5">5</button>
-          <button class="key-btn num-key" data-num="6">6</button>
-          <button class="key-btn num-key" data-num="7">7</button>
-          <button class="key-btn num-key" data-num="8">8</button>
-          <button class="key-btn num-key" data-num="9">9</button>
-          <button class="key-btn num-key" data-num="0">0</button>
-          <button id="btn-clear" class="key-btn action-key clear-key">
-            <span>⌫ けす</span>
-          </button>
-          <button id="btn-submit" class="key-btn action-key submit-key">
-            <span>⚾ スイング！（決定）</span>
-          </button>
+        <!-- 右側：2〜20のわる数ボタングリッド（5列×4行） -->
+        <div class="keypad-right-zone">
+          <div class="palette-header">
+            <span class="palette-title">⚾ 何でわる？（公約数をタップ！）</span>
+          </div>
+          <div class="divisor-grid">
+            <!-- 1行目 -->
+            <button class="div-btn" data-val="2">÷ 2</button>
+            <button class="div-btn" data-val="3">÷ 3</button>
+            <button class="div-btn" data-val="4">÷ 4</button>
+            <button class="div-btn" data-val="5">÷ 5</button>
+            <button class="div-btn" data-val="6">÷ 6</button>
+            <!-- 2行目 -->
+            <button class="div-btn" data-val="7">÷ 7</button>
+            <button class="div-btn" data-val="8">÷ 8</button>
+            <button class="div-btn" data-val="9">÷ 9</button>
+            <button class="div-btn" data-val="10">÷ 10</button>
+            <button class="div-btn" data-val="11">÷ 11</button>
+            <!-- 3行目 -->
+            <button class="div-btn" data-val="12">÷ 12</button>
+            <button class="div-btn" data-val="13">÷ 13</button>
+            <button class="div-btn" data-val="14">÷ 14</button>
+            <button class="div-btn" data-val="15">÷ 15</button>
+            <button class="div-btn" data-val="16">÷ 16</button>
+            <!-- 4行目 -->
+            <button class="div-btn" data-val="17">÷ 17</button>
+            <button class="div-btn" data-val="18">÷ 18</button>
+            <button class="div-btn" data-val="19">÷ 19</button>
+            <button class="div-btn" data-val="20">÷ 20</button>
+            <button id="btn-hint" class="div-btn hint-btn">💡 ヒント</button>
+          </div>
         </div>
       </div>
     </section>
