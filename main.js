@@ -64,6 +64,8 @@ const state = {
   sessionGain: 0,      // 今回のセッションで解いた問数
   totalHomeruns: 0,    // 通算ホームラン
   totalHits: 0,        // 通算安打
+  maxDistance: 0,      // 自己最長飛距離 (m)
+  totalDistance: 0,    // 通算総飛距離 (m)
   totalStrikeouts: 0,  // 通算三振
   consecutiveHits: 0,
   abilities: new Set(['期待の新人']),
@@ -87,6 +89,7 @@ const dom = {
     title: document.getElementById('screen-title'),
     howto: document.getElementById('screen-howto'),
     game: document.getElementById('screen-game'),
+    batting: document.getElementById('screen-batting'),
     result: document.getElementById('screen-result'),
     ranking: document.getElementById('screen-ranking')
   },
@@ -159,12 +162,30 @@ const dom = {
   resHrCount: document.getElementById('res-hr-count'),
   resHitCount: document.getElementById('res-hit-count'),
   resSoCount: document.getElementById('res-so-count'),
+  resMaxDist: document.getElementById('res-max-dist'),
+  resTotalDist: document.getElementById('res-total-dist'),
   resSpecialSkills: document.getElementById('res-special-skills'),
   registerStatus: document.getElementById('register-status'),
   registerMsg: document.getElementById('register-msg'),
   btnContinue: document.getElementById('btn-continue'),
   btnResultRanking: document.getElementById('btn-result-ranking'),
   btnBackTitle: document.getElementById('btn-back-title'),
+
+  // ご褒美バッティング画面
+  battingCanvas: document.getElementById('batting-canvas'),
+  battingLayerBatter: document.getElementById('batting-layer-batter'),
+  battingLayerBroadcast: document.getElementById('batting-layer-broadcast'),
+  battingImgBroadcast: document.getElementById('batting-img-broadcast'),
+  battingImpactFlash: document.getElementById('batting-impact-flash'),
+  battingStatusText: document.getElementById('batting-status-text'),
+  battingPlayerStatsBadge: document.getElementById('batting-player-stats-badge'),
+  battingMeterHud: document.getElementById('batting-meter-hud'),
+  battingMeterVal: document.getElementById('batting-meter-val'),
+  battingBroadcastTicker: document.getElementById('batting-broadcast-ticker'),
+  battingTickerText: document.getElementById('batting-ticker-text'),
+  battingHomerunPopup: document.getElementById('batting-homerun-popup'),
+  battingHrDistText: document.getElementById('batting-hr-dist-text'),
+  btnBattingSwingTouch: document.getElementById('btn-batting-swing-touch'),
 
   // ランキング画面
   btnRankingClose: document.getElementById('btn-ranking-close'),
@@ -388,6 +409,8 @@ function saveLocalPlayerData() {
     totalHomeruns: state.totalHomeruns,
     totalHits: state.totalHits,
     totalStrikeouts: state.totalStrikeouts,
+    maxDistance: state.maxDistance || 0,
+    totalDistance: state.totalDistance || 0,
     abilities: Array.from(state.abilities),
     updatedAt: new Date().toISOString()
   };
@@ -490,12 +513,16 @@ async function startTraining(playerName) {
     state.totalHomeruns = localData.totalHomeruns || 0;
     state.totalHits = localData.totalHits || 0;
     state.totalStrikeouts = localData.totalStrikeouts || 0;
+    state.maxDistance = localData.maxDistance || 0;
+    state.totalDistance = localData.totalDistance || 0;
     state.abilities = getSkillsForSolved(state.totalSolved);
   } else {
     state.totalSolved = 0;
     state.totalHomeruns = 0;
     state.totalHits = 0;
     state.totalStrikeouts = 0;
+    state.maxDistance = 0;
+    state.totalDistance = 0;
     state.abilities = getSkillsForSolved(0);
   }
 
@@ -700,7 +727,11 @@ function triggerHomerun(divisor, finalN, finalD) {
 
   setTimeout(() => {
     dom.homerunCutin.classList.add('hide');
-    setupProblem();
+    if (state.totalSolved % 10 === 0 && state.totalSolved > 0) {
+      startRewardBatting();
+    } else {
+      setupProblem();
+    }
   }, 1300);
 }
 
@@ -722,7 +753,11 @@ function triggerTimelyHomein(divisor, finalN, finalD) {
 
   setTimeout(() => {
     dom.homerunCutin.classList.add('hide');
-    setupProblem();
+    if (state.totalSolved % 10 === 0 && state.totalSolved > 0) {
+      startRewardBatting();
+    } else {
+      setupProblem();
+    }
   }, 1300);
 }
 
@@ -836,7 +871,9 @@ function showResult() {
 
   dom.resHrCount.textContent = state.totalHomeruns;
   dom.resHitCount.textContent = state.totalHits;
-  dom.resSoCount.textContent = state.totalStrikeouts;
+  if (dom.resMaxDist) dom.resMaxDist.textContent = state.maxDistance || 0;
+  if (dom.resTotalDist) dom.resTotalDist.textContent = (state.totalDistance || 0).toLocaleString();
+  if (dom.resSoCount) dom.resSoCount.textContent = state.totalStrikeouts;
 
   // 特殊能力タグ
   dom.resSpecialSkills.innerHTML = '';
@@ -957,7 +994,7 @@ async function openRankingModal() {
         dom.myRankSkill.textContent = `🌟 【${myPrimarySkill}】`;
       }
       if (dom.myRankStats) {
-        dom.myRankStats.textContent = `弾道: ${getTrajectoryName(myTraj)} / ミート: ${getGrade(myMeet)} ${myMeet} / パワー: ${getGrade(myPower)} ${myPower} (本塁打: ${state.totalHomeruns}本)`;
+        dom.myRankStats.textContent = `弾道: ${getTrajectoryName(myTraj)} / M: ${getGrade(myMeet)} ${myMeet} / P: ${getGrade(myPower)} ${myPower} | 本塁打: ${state.totalHomeruns}本 / 最長: ${state.maxDistance || 0}m / 総飛距離: ${(state.totalDistance || 0).toLocaleString()}m`;
       }
     }
   } catch (err) {
@@ -1036,6 +1073,691 @@ function triggerConfetti() {
   }
 
   requestAnimationFrame(updateConfetti);
+}
+
+/* ==========================================================================
+   ご褒美バッティングエンジン (10問達成ご褒美・1球入魂！実況中継カメラ演出)
+   ========================================================================== */
+let bCtx = null;
+let bW = 0, bH = 0;
+let bAnimId = null;
+let bCameraMode = 'BATTER';
+let bBattingActive = false;
+let bPitchState = 'IDLE'; // 'IDLE', 'WINDUP', 'FLYING', 'RESULT'
+let bStateStartTime = 0;
+
+const bStrikeZone = {
+  get x() { return bW * 0.5; },
+  get y() { return bH * 0.64; },
+  get w() { return Math.min(220, bW * 0.28); },
+  get h() { return Math.min(250, bH * 0.36); }
+};
+
+const bBatCursor = {
+  x: 0, y: 0,
+  radius: 36,
+  isSwinging: false,
+  swingProgress: 0
+};
+
+const bBall = {
+  active: false,
+  x: 0, y: 0,
+  speedKmh: 148,
+  durationMs: 960,
+  startTime: 0,
+  targetX: 0, targetY: 0,
+  hit: false,
+  hitResult: null
+};
+
+const bTrackingBall = {
+  active: false,
+  startTime: 0,
+  durationMs: 2400,
+  startX: 0, startY: 0,
+  apexY: 0,
+  endX: 0, endY: 0,
+  targetDist: 140,
+  isHr: false,
+  isPerfect: false,
+  landed: false,
+  currentX: 0, currentY: 0,
+  currentScale: 1.0,
+  trail: []
+};
+
+let bParticles = [];
+let bConfetti = [];
+
+function resizeBattingCanvas() {
+  if (!dom.battingCanvas) return;
+  const rect = dom.battingCanvas.getBoundingClientRect();
+  bW = dom.battingCanvas.width = rect.width;
+  bH = dom.battingCanvas.height = rect.height;
+  bBatCursor.x = bStrikeZone.x;
+  bBatCursor.y = bStrikeZone.y;
+}
+
+window.addEventListener('resize', () => {
+  if (state.screen === 'batting') {
+    resizeBattingCanvas();
+  }
+});
+
+function setBattingCameraMode(mode) {
+  bCameraMode = mode;
+  if (!dom.battingLayerBatter || !dom.battingLayerBroadcast) return;
+  if (mode === 'BROADCAST') {
+    dom.battingLayerBatter.classList.remove('active');
+    dom.battingLayerBroadcast.classList.add('active');
+  } else {
+    dom.battingLayerBroadcast.classList.remove('active');
+    dom.battingLayerBatter.classList.add('active');
+    if (dom.battingBroadcastTicker) dom.battingBroadcastTicker.classList.remove('show');
+    if (dom.battingMeterHud) dom.battingMeterHud.classList.remove('show');
+  }
+}
+
+function getBattingPitcherPos() {
+  return { x: bW * 0.505, y: bH * 0.40 };
+}
+
+function startRewardBatting() {
+  state.screen = 'batting';
+  showScreen('batting');
+  sounds.playFever();
+
+  bBattingActive = true;
+  setBattingCameraMode('BATTER');
+  resizeBattingCanvas();
+
+  bCtx = dom.battingCanvas.getContext('2d');
+
+  // 選手の能力値を反映
+  const curMeet = calcMeet(state.totalSolved);
+  const curPower = calcPower(state.totalHomeruns);
+  const meetGrade = getGrade(curMeet);
+  const powerGrade = getGrade(curPower);
+
+  if (dom.battingPlayerStatsBadge) {
+    dom.battingPlayerStatsBadge.textContent =
+      `ミート: ${meetGrade} ${curMeet} / パワー: ${powerGrade} ${curPower}`;
+  }
+
+  // ミート力に応じてカーソルサイズ拡大（32px〜52px）
+  bBatCursor.radius = Math.min(52, Math.max(32, 32 + (curMeet - 40) * 0.35));
+  bBatCursor.x = bStrikeZone.x;
+  bBatCursor.y = bStrikeZone.y;
+  bBatCursor.isSwinging = false;
+
+  bParticles = [];
+  bConfetti = [];
+  bBall.active = false;
+  bBall.hit = false;
+  bTrackingBall.active = false;
+
+  dom.battingStatusText.textContent = "絶好球が来るぞ！【1球入魂】タイミングを合わせて打て！";
+  dom.battingHomerunPopup.classList.remove('show');
+
+  if (bAnimId) cancelAnimationFrame(bAnimId);
+  bAnimId = requestAnimationFrame(renderBatting);
+
+  // 1秒後にピッチャー投球開始！
+  setTimeout(() => {
+    if (bBattingActive) {
+      throwRewardPitch();
+    }
+  }, 1000);
+}
+
+function throwRewardPitch() {
+  bPitchState = 'WINDUP';
+  bStateStartTime = performance.now();
+
+  bBall.active = false;
+  bBall.hit = false;
+  bBall.hitResult = null;
+  bBatCursor.isSwinging = false;
+
+  setTimeout(() => {
+    if (!bBattingActive) return;
+    releaseRewardPitch();
+  }, 500);
+}
+
+function releaseRewardPitch() {
+  bBall.active = true;
+  bBall.hit = false;
+  bBall.hitResult = null;
+  bBall.startTime = performance.now();
+  bBall.speedKmh = 145 + Math.floor(Math.random() * 5); // 145〜150km/h
+  bBall.durationMs = Math.floor((150 / bBall.speedKmh) * 950);
+
+  const pPos = getBattingPitcherPos();
+  bBall.x = pPos.x;
+  bBall.y = pPos.y;
+
+  // 必ずストライクゾーン中央付近の打ちやすい絶好球！
+  bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.4);
+  bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.4);
+
+  bPitchState = 'FLYING';
+  sounds.playRelease();
+}
+
+function executeBattingSwing() {
+  if (bBatCursor.isSwinging || !bBattingActive) return;
+  bBatCursor.isSwinging = true;
+  bBatCursor.swingProgress = 0;
+  sounds.playWhoosh();
+
+  if (!bBall.active || bBall.hit || bPitchState !== 'FLYING') {
+    return;
+  }
+
+  const now = performance.now();
+  const elapsed = now - bBall.startTime;
+  const timingDelta = elapsed - bBall.durationMs;
+
+  const dist = Math.hypot(bBatCursor.x - bBall.x, bBatCursor.y - bBall.y);
+  const cursorR = bBatCursor.radius;
+  const coreR = 14;
+
+  const absTiming = Math.abs(timingDelta);
+  let result = '';
+  let baseFlight = 0;
+
+  // パワーボーナス
+  const curPower = calcPower(state.totalHomeruns);
+  const powerBonus = Math.floor((curPower - 40) * 0.45);
+
+  if (absTiming <= 45 && dist <= coreR) {
+    result = 'PERFECT_HOMERUN';
+    baseFlight = Math.floor(142 + Math.random() * 15);
+  } else if (absTiming <= 85 && dist <= cursorR * 0.7) {
+    result = 'HOMERUN';
+    baseFlight = Math.floor(125 + Math.random() * 14);
+  } else if (absTiming <= 130 && dist <= cursorR * 1.1) {
+    result = 'HIT';
+    baseFlight = Math.floor(75 + Math.random() * 30);
+  } else {
+    result = 'SWING_AND_MISS';
+  }
+
+  const flight = (result === 'SWING_AND_MISS') ? 0 : (baseFlight + powerBonus);
+
+  bBall.hit = true;
+  bBall.hitResult = result;
+
+  // 閃光フラッシュ
+  const flash = dom.battingImpactFlash;
+  if (flash) {
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 50);
+  }
+
+  if (result === 'PERFECT_HOMERUN' || result === 'HOMERUN') {
+    state.totalHomeruns++;
+    state.totalHits++;
+    state.maxDistance = Math.max(state.maxDistance || 0, flight);
+    state.totalDistance = (state.totalDistance || 0) + flight;
+    saveLocalPlayerData();
+    updateHud();
+
+    sounds.playHomerun();
+    startBattingBroadcastTracking(flight, true, result === 'PERFECT_HOMERUN', timingDelta);
+  } else if (result === 'HIT') {
+    state.totalHits++;
+    state.maxDistance = Math.max(state.maxDistance || 0, flight);
+    state.totalDistance = (state.totalDistance || 0) + flight;
+    saveLocalPlayerData();
+    updateHud();
+
+    sounds.playHit();
+    startBattingBroadcastTracking(flight, false, false, timingDelta);
+  } else {
+    // 空振り
+    dom.battingStatusText.textContent = "💨 空振り！どんまい！次の10問でリベンジだ！";
+    setTimeout(() => {
+      finishRewardBatting();
+    }, 1800);
+  }
+}
+
+function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
+  bPitchState = 'RESULT';
+
+  setTimeout(() => {
+    if (!bBattingActive) return;
+    setBattingCameraMode('BROADCAST');
+
+    const ticker = dom.battingBroadcastTicker;
+    const tickerText = dom.battingTickerText;
+    const meterHud = dom.battingMeterHud;
+    const meterVal = dom.battingMeterVal;
+
+    let dir = timingDelta < -10 ? 'レフトへ' : (timingDelta > 10 ? 'ライトへ' : 'バックスクリーンへ');
+    if (isPerfect) {
+      tickerText.textContent = `打った瞬間それと分かる当たり！${dir}ぐんぐん伸びるー！！`;
+    } else if (isHr) {
+      tickerText.textContent = `高々と上がった大飛球！${dir}行ったか！？行ったかー！？`;
+    } else {
+      tickerText.textContent = `鋭い打球がグラウンドを抜けて${dir}クリーンヒット！！`;
+    }
+
+    if (ticker) ticker.classList.add('show');
+    if (meterHud) meterHud.classList.add('show');
+    if (meterVal) meterVal.textContent = '0m';
+
+    bTrackingBall.active = true;
+    bTrackingBall.startTime = performance.now();
+    bTrackingBall.durationMs = isHr ? (isPerfect ? 2600 : 2300) : 1700;
+    bTrackingBall.isHr = isHr;
+    bTrackingBall.isPerfect = isPerfect;
+    bTrackingBall.landed = false;
+    bTrackingBall.targetDist = dist;
+    bTrackingBall.trail = [];
+
+    bTrackingBall.startX = bW * 0.5 + (bBatCursor.x - bStrikeZone.x) * 0.6;
+    bTrackingBall.startY = bH * 0.88;
+
+    const xOffset = (timingDelta < 0 ? -1 : 1) * Math.min(bW * 0.35, Math.abs(timingDelta) * 3);
+    bTrackingBall.endX = bW * 0.5 + xOffset;
+    bTrackingBall.endY = isHr ? (bH * 0.28 + (Math.random() - 0.5) * 40) : (bH * 0.65);
+    bTrackingBall.apexY = isHr ? (bH * 0.08) : (bH * 0.45);
+
+    const totalWait = bTrackingBall.durationMs + (isHr ? 2400 : 1400);
+    setTimeout(() => {
+      finishRewardBatting();
+    }, totalWait);
+  }, 120);
+}
+
+function onBattingHomerunLanded() {
+  bTrackingBall.landed = true;
+  sounds.playFirework();
+  sounds.playCheer();
+
+  const container = document.getElementById('app-container');
+  if (container) {
+    container.classList.add('shake');
+    setTimeout(() => container.classList.remove('shake'), 450);
+  }
+
+  if (dom.battingTickerText) {
+    dom.battingTickerText.textContent = bTrackingBall.isPerfect
+      ? `スタンド最上段へ飛び込んだぁぁ！特大ホームラン ${bTrackingBall.targetDist}m！！`
+      : `スタンド中段へ飛び込んだー！ホームラン！推定 ${bTrackingBall.targetDist}m！！`;
+  }
+
+  spawnBattingFireworks(bTrackingBall.endX, bTrackingBall.endY);
+  spawnBattingFireworks(bW * 0.25, bH * 0.22);
+  spawnBattingFireworks(bW * 0.75, bH * 0.22);
+  spawnBattingConfetti();
+
+  if (dom.battingHrDistText) {
+    dom.battingHrDistText.textContent = `推定飛距離 ${bTrackingBall.targetDist}m！`;
+  }
+  if (dom.battingHomerunPopup) {
+    dom.battingHomerunPopup.classList.add('show');
+    setTimeout(() => dom.battingHomerunPopup.classList.remove('show'), 2600);
+  }
+}
+
+function spawnBattingFireworks(x, y) {
+  const colors = ['#ffd23f', '#ff334b', '#00d2ff', '#00ffaa', '#ff88ff', '#ffffff'];
+  for (let i = 0; i < 45; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 8;
+    bParticles.push({
+      x: x, y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 3 + Math.random() * 4,
+      alpha: 1.0,
+      decay: 0.015 + Math.random() * 0.02
+    });
+  }
+}
+
+function spawnBattingConfetti() {
+  const colors = ['#ffd23f', '#ff334b', '#00d2ff', '#00ffaa', '#e2e8f0', '#fb923c', '#c084fc'];
+  for (let i = 0; i < 80; i++) {
+    bConfetti.push({
+      x: Math.random() * bW,
+      y: -10 - Math.random() * 80,
+      vx: (Math.random() - 0.5) * 2.5,
+      vy: 2 + Math.random() * 4,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.15,
+      sizeW: 8 + Math.random() * 6,
+      sizeH: 5 + Math.random() * 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: 1.0
+    });
+  }
+}
+
+function finishRewardBatting() {
+  bBattingActive = false;
+  if (bAnimId) {
+    cancelAnimationFrame(bAnimId);
+    bAnimId = null;
+  }
+  setBattingCameraMode('BATTER');
+
+  showScreen('game');
+  announce(`ナイスバッティング！第 ${state.totalSolved + 1} 問へ進もう！`);
+  setupProblem();
+}
+
+function renderBatting(now) {
+  if (!bBattingActive || !bCtx) return;
+  bCtx.clearRect(0, 0, bW, bH);
+
+  if (bCameraMode === 'BATTER') {
+    drawBattingStrikeZone();
+    drawBattingPitcherMotion(now);
+    updateAndDrawBattingBall(now);
+    drawBattingCursor();
+    drawBattingSwingEffect();
+  } else {
+    updateAndDrawBattingTrackingBall(now);
+    updateAndDrawBattingParticles();
+    updateAndDrawBattingConfetti();
+  }
+
+  bAnimId = requestAnimationFrame(renderBatting);
+}
+
+function drawBattingStrikeZone() {
+  const zx = bStrikeZone.x - bStrikeZone.w / 2;
+  const zy = bStrikeZone.y - bStrikeZone.h / 2;
+  const zw = bStrikeZone.w;
+  const zh = bStrikeZone.h;
+
+  bCtx.save();
+  bCtx.strokeStyle = 'rgba(0, 210, 255, 0.75)';
+  bCtx.lineWidth = 2.5;
+  bCtx.strokeRect(zx, zy, zw, zh);
+
+  bCtx.fillStyle = 'rgba(0, 40, 90, 0.16)';
+  bCtx.fillRect(zx, zy, zw, zh);
+
+  bCtx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  bCtx.lineWidth = 1;
+  bCtx.beginPath();
+  bCtx.moveTo(zx + zw / 3, zy); bCtx.lineTo(zx + zw / 3, zy + zh);
+  bCtx.moveTo(zx + (zw * 2) / 3, zy); bCtx.lineTo(zx + (zw * 2) / 3, zy + zh);
+  bCtx.moveTo(zx, zy + zh / 3); bCtx.lineTo(zx + zw, zy + zh / 3);
+  bCtx.moveTo(zx, zy + (zh * 2) / 3); bCtx.lineTo(zx + zw, zy + (zh * 2) / 3);
+  bCtx.stroke();
+
+  bCtx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  bCtx.beginPath();
+  const bx = bStrikeZone.x;
+  const by = zy + zh + 18;
+  bCtx.moveTo(bx - 36, by);
+  bCtx.lineTo(bx + 36, by);
+  bCtx.lineTo(bx + 36, by + 12);
+  bCtx.lineTo(bx, by + 26);
+  bCtx.lineTo(bx - 36, by + 12);
+  bCtx.closePath();
+  bCtx.fill();
+  bCtx.restore();
+}
+
+function drawBattingPitcherMotion(now) {
+  if (bPitchState !== 'WINDUP') return;
+  const elapsed = now - bStateStartTime;
+  const progress = Math.min(1, elapsed / 500);
+
+  const pPos = getBattingPitcherPos();
+  bCtx.save();
+  const r = (1 - progress) * 35 + 8;
+  bCtx.strokeStyle = `rgba(255, 210, 63, ${0.4 + progress * 0.6})`;
+  bCtx.lineWidth = 3;
+  bCtx.beginPath();
+  bCtx.arc(pPos.x, pPos.y, r, 0, Math.PI * 2);
+  bCtx.stroke();
+
+  bCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  bCtx.beginPath();
+  bCtx.arc(pPos.x, pPos.y, 4, 0, Math.PI * 2);
+  bCtx.fill();
+  bCtx.restore();
+}
+
+function updateAndDrawBattingBall(now) {
+  if (!bBall.active || bBall.hit) return;
+
+  const elapsed = now - bBall.startTime;
+  const progress = elapsed / bBall.durationMs;
+
+  if (progress >= 1.25) {
+    bBall.active = false;
+    sounds.playCatch();
+    dom.battingStatusText.textContent = "👀 見送り！次は振ってみよう！";
+    setTimeout(() => {
+      finishRewardBatting();
+    }, 1600);
+    return;
+  }
+
+  const pPos = getBattingPitcherPos();
+  bBall.x = pPos.x + (bBall.targetX - pPos.x) * progress;
+  bBall.y = pPos.y + (bBall.targetY - pPos.y) * progress;
+
+  const r = 4 + Math.pow(progress, 2.2) * 26;
+
+  bCtx.save();
+  bCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  bCtx.beginPath();
+  bCtx.ellipse(bBall.x, bStrikeZone.y + bStrikeZone.h / 2 + 10, r * 1.2, r * 0.4, 0, 0, Math.PI * 2);
+  bCtx.fill();
+
+  const grad = bCtx.createRadialGradient(bBall.x - r * 0.3, bBall.y - r * 0.3, r * 0.1, bBall.x, bBall.y, r);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.75, '#f1f5f9');
+  grad.addColorStop(1, '#94a3b8');
+
+  bCtx.fillStyle = grad;
+  bCtx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+  bCtx.shadowBlur = progress > 0.8 ? 14 : 4;
+  bCtx.beginPath();
+  bCtx.arc(bBall.x, bBall.y, r, 0, Math.PI * 2);
+  bCtx.fill();
+
+  if (progress > 0.4) {
+    bCtx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+    bCtx.lineWidth = Math.max(1, r * 0.1);
+    bCtx.beginPath();
+    bCtx.arc(bBall.x - r * 0.2, bBall.y, r * 0.7, -0.6, 0.6);
+    bCtx.stroke();
+  }
+  bCtx.restore();
+}
+
+function drawBattingCursor() {
+  bCtx.save();
+  const cx = bBatCursor.x;
+  const cy = bBatCursor.y;
+  const r = bBatCursor.radius;
+
+  bCtx.strokeStyle = 'rgba(255, 210, 63, 0.85)';
+  bCtx.lineWidth = 2.5;
+  bCtx.fillStyle = 'rgba(255, 210, 63, 0.18)';
+  bCtx.beginPath();
+  bCtx.arc(cx, cy, r, 0, Math.PI * 2);
+  bCtx.fill();
+  bCtx.stroke();
+
+  bCtx.strokeStyle = '#ff334b';
+  bCtx.fillStyle = 'rgba(255, 51, 75, 0.5)';
+  bCtx.lineWidth = 2;
+  bCtx.beginPath();
+  bCtx.arc(cx, cy, 10, 0, Math.PI * 2);
+  bCtx.fill();
+  bCtx.stroke();
+
+  bCtx.strokeStyle = 'rgba(255, 210, 63, 0.6)';
+  bCtx.lineWidth = 1.5;
+  bCtx.beginPath();
+  bCtx.moveTo(cx - r - 6, cy); bCtx.lineTo(cx + r + 6, cy);
+  bCtx.moveTo(cx, cy - r - 6); bCtx.lineTo(cx + r + 6, cy);
+  bCtx.stroke();
+  bCtx.restore();
+}
+
+function drawBattingSwingEffect() {
+  if (!bBatCursor.isSwinging) return;
+  bBatCursor.swingProgress += 0.12;
+
+  bCtx.save();
+  const prog = bBatCursor.swingProgress;
+  const alpha = Math.max(0, 1 - prog);
+  bCtx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+  bCtx.lineWidth = 8 * (1 - prog * 0.5);
+  bCtx.beginPath();
+  bCtx.arc(bBatCursor.x, bBatCursor.y + 10, bBatCursor.radius * 1.6, -0.8 + prog * 1.5, 0.8 + prog * 1.5);
+  bCtx.stroke();
+  bCtx.restore();
+
+  if (bBatCursor.swingProgress >= 1) {
+    bBatCursor.isSwinging = false;
+  }
+}
+
+function updateAndDrawBattingTrackingBall(now) {
+  if (!bTrackingBall.active) return;
+
+  const elapsed = now - bTrackingBall.startTime;
+  const progress = Math.min(1.0, elapsed / bTrackingBall.durationMs);
+
+  const curDist = Math.floor(progress * bTrackingBall.targetDist);
+  if (dom.battingMeterVal) dom.battingMeterVal.textContent = `${curDist}m`;
+
+  const curX = bTrackingBall.startX + (bTrackingBall.endX - bTrackingBall.startX) * progress;
+
+  const p0Y = bTrackingBall.startY;
+  const p1Y = bTrackingBall.apexY;
+  const p2Y = bTrackingBall.endY;
+  const curY = Math.pow(1 - progress, 2) * p0Y + 2 * (1 - progress) * progress * p1Y + Math.pow(progress, 2) * p2Y;
+
+  bTrackingBall.currentX = curX;
+  bTrackingBall.currentY = curY;
+
+  const curScale = (1.0 - progress * 0.82);
+  bTrackingBall.currentScale = curScale;
+
+  const camOffsetY = Math.sin(progress * Math.PI) * -35;
+  if (dom.battingImgBroadcast) {
+    dom.battingImgBroadcast.style.transform = `scale(1.06) translateY(${camOffsetY}px)`;
+  }
+
+  bTrackingBall.trail.push({ x: curX, y: curY, scale: curScale, alpha: 1.0 });
+  if (bTrackingBall.trail.length > 25) bTrackingBall.trail.shift();
+
+  // トレイル
+  bCtx.save();
+  for (let i = 0; i < bTrackingBall.trail.length; i++) {
+    const pt = bTrackingBall.trail[i];
+    const trailAlpha = (i / bTrackingBall.trail.length) * 0.6;
+    const trailR = Math.max(1.5, 20 * pt.scale * (i / bTrackingBall.trail.length));
+
+    bCtx.fillStyle = bTrackingBall.isHr ? `rgba(255, 210, 63, ${trailAlpha})` : `rgba(0, 210, 255, ${trailAlpha})`;
+    bCtx.shadowColor = bTrackingBall.isHr ? '#ff334b' : '#00ffaa';
+    bCtx.shadowBlur = 10;
+    bCtx.beginPath();
+    bCtx.arc(pt.x, pt.y, trailR, 0, Math.PI * 2);
+    bCtx.fill();
+  }
+  bCtx.restore();
+
+  // ボール
+  const ballR = Math.max(2.5, 22 * curScale);
+  bCtx.save();
+  bCtx.fillStyle = '#ffffff';
+  bCtx.shadowColor = bTrackingBall.isHr ? '#ffd23f' : '#00d2ff';
+  bCtx.shadowBlur = 24;
+  bCtx.beginPath();
+  bCtx.arc(curX, curY, ballR, 0, Math.PI * 2);
+  bCtx.fill();
+
+  bCtx.fillStyle = '#fff';
+  bCtx.beginPath();
+  bCtx.arc(curX, curY, ballR * 0.6, 0, Math.PI * 2);
+  bCtx.fill();
+  bCtx.restore();
+
+  if (progress >= 1.0 && !bTrackingBall.landed) {
+    if (bTrackingBall.isHr) {
+      onBattingHomerunLanded();
+    } else {
+      bTrackingBall.landed = true;
+      sounds.playCatch();
+    }
+  }
+}
+
+function updateAndDrawBattingParticles() {
+  for (let i = bParticles.length - 1; i >= 0; i--) {
+    const p = bParticles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.12;
+    p.alpha -= p.decay;
+
+    if (p.alpha <= 0) {
+      bParticles.splice(i, 1);
+      continue;
+    }
+
+    bCtx.save();
+    bCtx.globalAlpha = Math.max(0, p.alpha);
+    bCtx.fillStyle = p.color;
+    bCtx.shadowColor = p.color;
+    bCtx.shadowBlur = 8;
+    bCtx.beginPath();
+    bCtx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+    bCtx.fill();
+    bCtx.restore();
+  }
+}
+
+function updateAndDrawBattingConfetti() {
+  for (let i = bConfetti.length - 1; i >= 0; i--) {
+    const c = bConfetti[i];
+    c.x += c.vx + Math.sin(c.y * 0.02) * 1.5;
+    c.y += c.vy;
+    c.rot += c.rotSpeed;
+
+    if (c.y > bH + 20) {
+      bConfetti.splice(i, 1);
+      continue;
+    }
+
+    bCtx.save();
+    bCtx.translate(c.x, c.y);
+    bCtx.rotate(c.rot);
+    bCtx.fillStyle = c.color;
+    bCtx.fillRect(-c.sizeW / 2, -c.sizeH / 2, c.sizeW, c.sizeH);
+    bCtx.restore();
+  }
+}
+
+function setBattingCursorPos(clientX, clientY) {
+  if (state.screen !== 'batting' || bCameraMode !== 'BATTER' || !dom.battingCanvas) return;
+  const rect = dom.battingCanvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+
+  const padX = bStrikeZone.w * 0.85;
+  const padY = bStrikeZone.h * 0.85;
+  bBatCursor.x = Math.max(bStrikeZone.x - padX, Math.min(bStrikeZone.x + padX, x));
+  bBatCursor.y = Math.max(bStrikeZone.y - padY, Math.min(bStrikeZone.y + padY, y));
 }
 
 // ==========================================================================
@@ -1129,6 +1851,55 @@ function initEvents() {
     } else {
       showScreen('title');
     }
+  });
+
+  // ⚾ バッティング画面イベントリスナー
+  if (dom.battingCanvas) {
+    dom.battingCanvas.addEventListener('mousemove', (e) => {
+      setBattingCursorPos(e.clientX, e.clientY);
+    });
+
+    dom.battingCanvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        setBattingCursorPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    dom.battingCanvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && state.screen === 'batting' && bCameraMode === 'BATTER') {
+        executeBattingSwing();
+      }
+    });
+  }
+
+  if (dom.btnBattingSwingTouch) {
+    dom.btnBattingSwingTouch.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (state.screen === 'batting' && bCameraMode === 'BATTER') {
+        executeBattingSwing();
+      }
+    });
+
+    dom.btnBattingSwingTouch.addEventListener('click', (e) => {
+      e.currentTarget.blur();
+      if (state.screen === 'batting' && bCameraMode === 'BATTER') {
+        executeBattingSwing();
+      }
+    });
+  }
+
+  // キーボード操作（スペース・Enterキーでのスイング）
+  window.addEventListener('keydown', (e) => {
+    if ((e.code === 'Space' || e.code === 'Enter') && state.screen === 'batting' && bCameraMode === 'BATTER') {
+      e.preventDefault();
+      executeBattingSwing();
+    }
+  });
+
+  // ボタンのフォーカスが残ってSpaceキーと干渉するのを完全防止
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('focus', (e) => e.target.blur());
   });
 }
 

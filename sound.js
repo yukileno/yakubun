@@ -298,6 +298,113 @@ class SoundEffectManager {
     playChord(chord2, t + 0.32, 0.3);
     playChord(chord3, t + 0.65, 1.4);
   }
+
+  // スイング風切り音
+  playWhoosh() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, t);
+      osc.frequency.exponentialRampToValueAtTime(100, t + 0.14);
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.linearRampToValueAtTime(0.01, t + 0.14);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.14);
+    } catch(e) {}
+  }
+
+  // 投球リリース音
+  playRelease() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.exponentialRampToValueAtTime(220, t + 0.09);
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.linearRampToValueAtTime(0.01, t + 0.09);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.09);
+    } catch(e) {}
+  }
+
+  // キャッチャー捕球音
+  playCatch() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.linearRampToValueAtTime(0.01, t + 0.1);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    } catch(e) {}
+  }
+
+  // 花火爆発音
+  playFirework() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(110, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.4);
+      gain.gain.setValueAtTime(0.6, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    } catch(e) {}
+  }
+
+  // 大歓声
+  playCheer() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const bufferSize = this.ctx.sampleRate * 0.8;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 850;
+      filter.Q.value = 1.2;
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start();
+    } catch(e) {}
+  }
 }
 
 const sounds = new SoundEffectManager();

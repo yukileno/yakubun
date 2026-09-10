@@ -251,6 +251,63 @@
       </div>
     </section>
 
+    <!-- ==================== 3.5 ご褒美バッティング（10問に1回・1球入魂）画面 ==================== -->
+    <section id="screen-batting" class="screen hide">
+      <!-- 背景カメラレイヤー 1: 打席視点（投手対決） -->
+      <div id="batting-layer-batter" class="batting-layer active">
+        <img src="assets/pitcher_duel.jpg" alt="スタジアム対決" class="batting-bg-img">
+        <div class="batting-overlay"></div>
+      </div>
+
+      <!-- 背景カメラレイヤー 2: 実況中継カメラ視点（外野パノラマ・打球追尾） -->
+      <div id="batting-layer-broadcast" class="batting-layer">
+        <img id="batting-img-broadcast" src="assets/stadium_outfield_cam.jpg" alt="外野中継カメラ" class="batting-bg-img broadcast-cam">
+        <div class="batting-overlay"></div>
+      </div>
+
+      <!-- インパクト時の閃光フラッシュ -->
+      <div id="batting-impact-flash"></div>
+
+      <!-- バッティング描画Canvas -->
+      <canvas id="batting-canvas"></canvas>
+
+      <!-- 上部ご褒美バー -->
+      <div class="batting-header-bar">
+        <span class="batting-reward-badge">🌟 10問達成ご褒美！</span>
+        <span class="batting-sub-msg" id="batting-status-text">絶好球が来るぞ！【1球入魂】スイング！</span>
+        <span class="batting-power-badge" id="batting-player-stats-badge">ミート: E 40 / パワー: E 40</span>
+      </div>
+
+      <!-- 飛距離リアルタイムメーターHUD -->
+      <div id="batting-meter-hud" class="batting-meter-hud">
+        <span>🚀 飛距離:</span>
+        <span id="batting-meter-val" class="meter-val">0m</span>
+      </div>
+
+      <!-- 実況テロップ -->
+      <div id="batting-broadcast-ticker" class="batting-broadcast-ticker">
+        <div class="ticker-badge">🎙️ 実況</div>
+        <div id="batting-ticker-text" class="ticker-text">打ったぁぁぁー！大きい！レフトへ！</div>
+      </div>
+
+      <!-- ホームランポップアップ -->
+      <div id="batting-homerun-popup" class="batting-homerun-popup">
+        <div class="hr-big-title">特大ホームラン！！</div>
+        <div class="hr-dist" id="batting-hr-dist-text">推定飛距離 145m！</div>
+      </div>
+
+      <!-- タブレット・スマホ用特大スイングボタン -->
+      <button id="btn-batting-swing-touch" class="btn-batting-touch" tabindex="-1">
+        <span>打つ！</span>
+        <span class="touch-sub">SWING</span>
+      </button>
+
+      <!-- ガイド案内 -->
+      <div class="batting-guide-tip">
+        💻 PC: <strong>マウスで狙って [スペース] か [クリック]</strong> | 📱 タブレット: <strong>ドラッグで狙って [打つ！]</strong>
+      </div>
+    </section>
+
     <!-- ==================== 4. リザルト（セーブ完了・選手カード）画面 ==================== -->
     <section id="screen-result" class="screen hide">
       <div class="result-card player-card-style">
@@ -305,8 +362,10 @@
 
           <div class="stats-summary-row">
             <div class="sum-item">通算本塁打: <strong id="res-hr-count">0</strong> 本</div>
+            <div class="sum-item">自己最長飛距離: <strong id="res-max-dist" style="color:var(--gold);">0</strong> m</div>
+            <div class="sum-item">通算総飛距離: <strong id="res-total-dist" style="color:var(--accent-blue);">0</strong> m</div>
             <div class="sum-item">通算安打: <strong id="res-hit-count">0</strong> 本</div>
-            <div class="sum-item">通算三振: <strong id="res-so-count">0</strong></div>
+            <div class="sum-item">通算三振: <strong id="res-so-count">0</strong> 回</div>
           </div>
 
           <div class="special-abilities-wrap">

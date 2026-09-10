@@ -1571,3 +1571,281 @@ html, body {
   padding: 2px 8px;
   border-radius: 4px;
 }
+
+/* ==========================================================================
+   6. ご褒美バッティング画面 (screen-batting) & 実況カメラ演出
+   ========================================================================== */
+#screen-batting {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #000;
+  z-index: 25;
+}
+
+.batting-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transition: opacity 0.35s ease;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.batting-layer.active {
+  opacity: 1;
+}
+
+.batting-bg-img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  filter: brightness(0.7) contrast(1.1);
+  transition: transform 0.4s ease-out;
+}
+
+.batting-bg-img.broadcast-cam {
+  filter: brightness(0.85) contrast(1.15);
+  transform: scale(1.05);
+}
+
+.batting-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(circle at 50% 40%, rgba(0, 30, 70, 0.15) 0%, rgba(5, 10, 20, 0.85) 100%);
+  z-index: 2;
+}
+
+#batting-impact-flash {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 45;
+  transition: opacity 0.25s ease-out;
+}
+
+#batting-impact-flash.flash {
+  opacity: 0.92;
+  transition: none;
+}
+
+#batting-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 5;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* 10問達成！ご褒美バッティング上部バー */
+.batting-header-bar {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(8, 14, 26, 0.94);
+  border: 2px solid var(--gold);
+  border-radius: 30px;
+  padding: 6px 20px;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.batting-reward-badge {
+  font-size: 0.85rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ff334b, #d90429);
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(255, 51, 75, 0.6);
+  letter-spacing: 0.5px;
+}
+
+.batting-power-badge {
+  font-size: 0.8rem;
+  color: var(--accent-blue);
+  font-weight: bold;
+}
+
+.batting-sub-msg {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* 飛距離メーターHUD */
+.batting-meter-hud {
+  position: absolute;
+  top: 66px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 36;
+  background: rgba(6, 12, 24, 0.88);
+  border: 2px solid var(--gold);
+  border-radius: 30px;
+  padding: 5px 22px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--gold);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 25px rgba(255, 210, 63, 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.batting-meter-hud.show {
+  display: flex;
+}
+
+.meter-val {
+  font-family: var(--font-digital);
+  font-size: 1.6rem;
+  color: #ffffff;
+  text-shadow: 0 0 10px var(--gold);
+}
+
+/* 🎙️ プロ野球実況テロップ */
+.batting-broadcast-ticker {
+  position: absolute;
+  bottom: 22px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 38;
+  background: linear-gradient(90deg, rgba(185, 28, 28, 0.95), rgba(220, 38, 38, 0.95));
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  padding: 8px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-width: 90%;
+  white-space: nowrap;
+}
+
+.batting-broadcast-ticker.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.ticker-badge {
+  background: var(--gold);
+  color: #000;
+  font-weight: 900;
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border-radius: 5px;
+  letter-spacing: 1px;
+}
+
+.ticker-text {
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.85);
+}
+
+/* ホームランポップアップ */
+.batting-homerun-popup {
+  position: absolute;
+  top: 42%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0;
+  z-index: 40;
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  text-align: center;
+}
+
+.batting-homerun-popup.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.hr-big-title {
+  font-size: 3.4rem;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 30px #ff334b, 0 0 60px #ffd23f;
+  letter-spacing: 3px;
+}
+
+.hr-dist {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 6px 24px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-top: 8px;
+  border: 2.5px solid var(--gold);
+  box-shadow: 0 0 25px rgba(255, 210, 63, 0.7);
+}
+
+/* タブレット向け特大スイングボタン */
+.btn-batting-touch {
+  position: absolute;
+  bottom: 24px; right: 24px;
+  width: 95px; height: 95px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffd23f, #d97706);
+  border: 4px solid #ffffff;
+  color: #1a0f00;
+  font-size: 1.25rem;
+  font-weight: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 25px rgba(255, 210, 63, 0.6);
+  cursor: pointer;
+  z-index: 30;
+  transition: transform 0.1s;
+  outline: none;
+}
+
+.btn-batting-touch:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 15px rgba(255, 210, 63, 0.9);
+}
+
+.touch-sub { font-size: 0.65rem; font-weight: bold; }
+
+.batting-guide-tip {
+  position: absolute;
+  bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 4px 16px;
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* リザルト画面・新スタッツ */
+.res-dist-item {
+  color: var(--gold);
+}
+
