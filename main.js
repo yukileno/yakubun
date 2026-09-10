@@ -87,7 +87,6 @@ const state = {
 const dom = {
   screens: {
     title: document.getElementById('screen-title'),
-    howto: document.getElementById('screen-howto'),
     game: document.getElementById('screen-game'),
     batting: document.getElementById('screen-batting'),
     result: document.getElementById('screen-result'),
@@ -104,12 +103,20 @@ const dom = {
   resumeName: document.getElementById('resume-name'),
   resumeRank: document.getElementById('resume-rank'),
   resumeSolvedCount: document.getElementById('resume-solved-count'),
+  resumeHrCount: document.getElementById('resume-hr-count'),
+  resumeDistCount: document.getElementById('resume-dist-count'),
   btnResumeStart: document.getElementById('btn-resume-start'),
-  playerNameInput: document.getElementById('player-name'),
-  btnNewStart: document.getElementById('btn-new-start'),
+  btnChoiceNew: document.getElementById('btn-choice-new'),
+  btnChoiceLoad: document.getElementById('btn-choice-load'),
+  modalStartNew: document.getElementById('modal-start-new'),
+  modalStartLoad: document.getElementById('modal-start-load'),
+  inputNewPlayerName: document.getElementById('input-new-player-name'),
+  inputLoadPlayerName: document.getElementById('input-load-player-name'),
+  btnConfirmNewStart: document.getElementById('btn-confirm-new-start'),
+  btnConfirmLoadStart: document.getElementById('btn-confirm-load-start'),
+  btnCloseModalNew: document.getElementById('btn-close-modal-new'),
+  btnCloseModalLoad: document.getElementById('btn-close-modal-load'),
   btnTitleRanking: document.getElementById('btn-title-ranking'),
-  btnHowto: document.getElementById('btn-how-to'),
-  btnHowtoClose: document.getElementById('btn-howto-close'),
   btnMute: document.getElementById('btn-mute'),
 
   // ゲーム画面HUD
@@ -430,9 +437,10 @@ function checkTitleSavedData() {
       dom.resumeName.textContent = `${data.name} 選手`;
       const rank = calcOverallRank(data.totalSolved);
       dom.resumeRank.textContent = rank;
-      dom.resumeRank.className = `resume-badge ${getRankClass(rank)}`;
+      dom.resumeRank.className = `player-rank-badge ${getRankClass(rank)}`;
       dom.resumeSolvedCount.textContent = data.totalSolved;
-      dom.playerNameInput.value = data.name;
+      if (dom.resumeHrCount) dom.resumeHrCount.textContent = data.totalHomeruns || 0;
+      if (dom.resumeDistCount) dom.resumeDistCount.textContent = data.maxDistance || 0;
       return;
     }
   }
@@ -501,7 +509,7 @@ function updateHud() {
 // ==========================================================================
 // ゲーム開始（選手呼び出し・新規作成）
 // ==========================================================================
-function startTraining(playerName) {
+function startTraining(playerName, isFresh = false) {
   const cleanName = playerName.trim().substring(0, 10) || 'スラッガー';
   state.playerName = cleanName;
 
@@ -509,7 +517,7 @@ function startTraining(playerName) {
   api.getSessionToken().then(t => state.sessionToken = t).catch(() => {});
 
   // 1. ローカルデータから即座にロード（0ミリ秒で高速起動！）
-  const localData = loadLocalPlayerData(cleanName);
+  const localData = isFresh ? null : loadLocalPlayerData(cleanName);
   if (localData) {
     state.totalSolved = localData.totalSolved || 0;
     state.totalHomeruns = localData.totalHomeruns || 0;
@@ -1867,43 +1875,127 @@ function setBattingCursorPos(clientX, clientY) {
 // イベント登録
 // ==========================================================================
 function initEvents() {
-  // つづきからスタート
-  dom.btnResumeStart.addEventListener('click', () => {
-    sounds.init();
-    sounds.playClick();
-    const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER);
-    if (lastPlayer) {
-      startTraining(lastPlayer);
-    }
-  });
+  // つづきからスタート（前回のセーブデータで即座に再開）
+  if (dom.btnResumeStart) {
+    dom.btnResumeStart.addEventListener('click', () => {
+      sounds.init();
+      sounds.playClick();
+      const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER);
+      if (lastPlayer) {
+        startTraining(lastPlayer, false);
+      }
+    });
+  }
 
-  // 指定の名前でスタート / 呼出
-  dom.btnNewStart.addEventListener('click', () => {
+  // 「最初からやる」ボタン押下 ➔ 新規選手名入力モーダルを開く
+  if (dom.btnChoiceNew) {
+    dom.btnChoiceNew.addEventListener('click', () => {
+      sounds.init();
+      sounds.playClick();
+      if (dom.modalStartNew) {
+        dom.modalStartNew.classList.remove('hide');
+        if (dom.inputNewPlayerName) {
+          dom.inputNewPlayerName.value = '';
+          dom.inputNewPlayerName.focus();
+        }
+      }
+    });
+  }
+
+  // 「記録の呼び出し」ボタン押下 ➔ 呼び出し選手名入力モーダルを開く
+  if (dom.btnChoiceLoad) {
+    dom.btnChoiceLoad.addEventListener('click', () => {
+      sounds.init();
+      sounds.playClick();
+      if (dom.modalStartLoad) {
+        dom.modalStartLoad.classList.remove('hide');
+        if (dom.inputLoadPlayerName) {
+          const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER) || '';
+          dom.inputLoadPlayerName.value = lastPlayer;
+          dom.inputLoadPlayerName.focus();
+        }
+      }
+    });
+  }
+
+  // 新規モーダル閉じる
+  if (dom.btnCloseModalNew) {
+    dom.btnCloseModalNew.addEventListener('click', () => {
+      sounds.playClick();
+      if (dom.modalStartNew) dom.modalStartNew.classList.add('hide');
+    });
+  }
+  if (dom.modalStartNew) {
+    dom.modalStartNew.addEventListener('click', (e) => {
+      if (e.target === dom.modalStartNew) {
+        dom.modalStartNew.classList.add('hide');
+      }
+    });
+  }
+
+  // 呼出モーダル閉じる
+  if (dom.btnCloseModalLoad) {
+    dom.btnCloseModalLoad.addEventListener('click', () => {
+      sounds.playClick();
+      if (dom.modalStartLoad) dom.modalStartLoad.classList.add('hide');
+    });
+  }
+  if (dom.modalStartLoad) {
+    dom.modalStartLoad.addEventListener('click', (e) => {
+      if (e.target === dom.modalStartLoad) {
+        dom.modalStartLoad.classList.add('hide');
+      }
+    });
+  }
+
+  // 新規スタート確定（0問から新規作成）
+  function handleConfirmNew() {
     sounds.init();
-    const name = dom.playerNameInput.value.trim();
+    const name = dom.inputNewPlayerName ? dom.inputNewPlayerName.value.trim() : '';
     if (!name) {
       alert("選手名（なまえ）をいれてね！");
       return;
     }
     sounds.playClick();
-    startTraining(name);
-  });
+    if (dom.modalStartNew) dom.modalStartNew.classList.add('hide');
+    startTraining(name, true);
+  }
+
+  if (dom.btnConfirmNewStart) {
+    dom.btnConfirmNewStart.addEventListener('click', handleConfirmNew);
+  }
+  if (dom.inputNewPlayerName) {
+    dom.inputNewPlayerName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleConfirmNew();
+    });
+  }
+
+  // 呼出スタート確定（既存データを呼び出し）
+  function handleConfirmLoad() {
+    sounds.init();
+    const name = dom.inputLoadPlayerName ? dom.inputLoadPlayerName.value.trim() : '';
+    if (!name) {
+      alert("登録した選手名（なまえ）をいれてね！");
+      return;
+    }
+    sounds.playClick();
+    if (dom.modalStartLoad) dom.modalStartLoad.classList.add('hide');
+    startTraining(name, false);
+  }
+
+  if (dom.btnConfirmLoadStart) {
+    dom.btnConfirmLoadStart.addEventListener('click', handleConfirmLoad);
+  }
+  if (dom.inputLoadPlayerName) {
+    dom.inputLoadPlayerName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleConfirmLoad();
+    });
+  }
 
   dom.btnTitleRanking.addEventListener('click', () => {
     sounds.init();
     sounds.playClick();
     openRankingModal();
-  });
-
-  dom.btnHowto.addEventListener('click', () => {
-    sounds.init();
-    sounds.playClick();
-    showScreen('howto');
-  });
-
-  dom.btnHowtoClose.addEventListener('click', () => {
-    sounds.playClick();
-    showScreen('title');
   });
 
   dom.btnMute.addEventListener('click', () => {

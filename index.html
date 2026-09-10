@@ -27,97 +27,116 @@
     <!-- 紙吹雪Canvas -->
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- ==================== 1. タイトル画面 ==================== -->
+    <!-- ==================== 1. タイトル画面（ワイド横長レイアウト） ==================== -->
     <section id="screen-title" class="screen active">
       <div class="title-bg-wrapper">
         <img src="assets/bg_stadium.jpg" alt="スタジアム" class="title-bg">
         <div class="title-vignette"></div>
       </div>
 
-      <div class="title-content">
-        <div class="game-badge">小学5年生 算数「約分」エンドレス育成ロード</div>
-        <h1 class="game-logo">
-          <span class="logo-sub">PRO BASEBALL SPIRITS</span>
-          <span class="logo-main">約分スラッガー</span>
-          <span class="logo-tag">〜無限のスキル進化！最強打者を目指せ！〜</span>
-        </h1>
-
-        <!-- アカウント管理カード -->
-        <div class="player-input-card">
-          <!-- 前回の続きカード（既存データがある場合表示） -->
-          <div id="resume-box" class="resume-box hide">
-            <div class="resume-label">前回のセーブデータが見つかりました</div>
-            <div class="resume-info">
-              <span class="resume-name" id="resume-name">選手名</span>
-              <span class="resume-badge" id="resume-rank">D</span>
-              <span class="resume-solved">通算 <strong id="resume-solved-count">0</strong> 問</span>
-            </div>
-            <button id="btn-resume-start" class="btn btn-primary btn-pulse">
-              <span class="btn-icon">⚾</span> つづきから遊ぶ！
-            </button>
-            <div class="resume-divider">または</div>
+      <div class="title-content-wide">
+        <!-- 上部横長ヘッダー：タイトルロゴ＆全国ランキング＆音量ボタン -->
+        <div class="title-top-bar-wide">
+          <div class="title-logo-block">
+            <span class="logo-sub-wide">PRO BASEBALL SPIRITS</span>
+            <h1 class="logo-main-wide">約分スラッガー</h1>
+            <span class="logo-tag-wide">〜無限のスキル進化！最強打者を目指せ！〜</span>
           </div>
-
-          <!-- 選手名入力・呼び出し -->
-          <div class="input-header">
-            <span class="uniform-icon">⚾</span>
-            <label for="player-name">選手名（なまえ）をいれてね</label>
-          </div>
-          <input type="text" id="player-name" maxlength="10" placeholder="せんしゅめい（10文字まで）" autocomplete="off">
-          <div class="name-hint">※最初に入力した名前でデータが呼び出され、上書き保存されます。<br>（プレイ中に名前を変えて他人のデータを上書きすることはできません）</div>
-
-          <div class="title-buttons" style="margin-top: 10px;">
-            <button id="btn-new-start" class="btn btn-secondary">
-              <span class="btn-icon">✨</span> この名前でスタート / 呼出
-            </button>
-            <button id="btn-title-ranking" class="btn btn-info">
+          <div class="title-top-btns">
+            <button id="btn-title-ranking" class="btn btn-gold">
               <span class="btn-icon">🏆</span> 全国ランキング
             </button>
-            <button id="btn-how-to" class="btn btn-outline">
-              <span class="btn-icon">📖</span> ルール
+            <button id="btn-mute" class="btn-mute" title="おとのON/OFF">🔊</button>
+          </div>
+        </div>
+
+        <!-- メインエリア：ワイドグリッド -->
+        <div class="title-grid-wide" id="title-grid-wide">
+          <!-- 前回の続きカード（本体にデータが残っている場合のみ表示） -->
+          <div id="resume-box" class="title-card-wide resume-card-wide hide">
+            <div class="card-tag-row">
+              <span class="badge-tag-green">前回のセーブデータ</span>
+              <span class="player-rank-badge" id="resume-rank">D</span>
+            </div>
+            <div class="resume-hero-name" id="resume-name">選手名</div>
+            <div class="resume-stats-strip">
+              <div class="rst-item"><span class="rst-lbl">正解数</span><strong id="resume-solved-count">0</strong>問</div>
+              <div class="rst-item"><span class="rst-lbl">本塁打</span><strong id="resume-hr-count">0</strong>本</div>
+              <div class="rst-item"><span class="rst-lbl">最長飛距離</span><strong id="resume-dist-count">0</strong>m</div>
+            </div>
+            <button id="btn-resume-start" class="btn btn-primary btn-pulse btn-resume-cta">
+              <span>▶ このつづきから遊ぶ！</span>
+            </button>
+          </div>
+
+          <!-- 2大選択カード：「最初からやる」と「記録の呼び出し」 -->
+          <div class="title-card-wide options-card-wide">
+            <div class="card-tag-row">
+              <span class="badge-tag-blue">あそびかたの選択</span>
+            </div>
+            <div class="options-btn-pair">
+              <!-- ボタン1: 最初からやる -->
+              <button id="btn-choice-new" class="opt-choice-btn btn-opt-new">
+                <div class="opt-icon">🌱</div>
+                <div class="opt-info">
+                  <span class="opt-title">最初からやる</span>
+                  <span class="opt-desc">新しい名前で0問からスタート</span>
+                </div>
+              </button>
+
+              <!-- ボタン2: 記録の呼び出し -->
+              <button id="btn-choice-load" class="opt-choice-btn btn-opt-load">
+                <div class="opt-icon">📥</div>
+                <div class="opt-info">
+                  <span class="opt-title">記録の呼び出し</span>
+                  <span class="opt-desc">名前を入力して続きを再開</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== モーダル: 最初からやる ==================== -->
+    <div id="modal-start-new" class="modal-card-overlay hide">
+      <div class="modal-dialog-box">
+        <div class="modal-dialog-header">
+          <h3>🌱 最初からやる</h3>
+          <button id="btn-close-modal-new" class="modal-close-btn" title="とじる">✕</button>
+        </div>
+        <div class="modal-dialog-body">
+          <p class="dialog-instruction">新しい選手名（なまえ）をいれてね：</p>
+          <input type="text" id="input-new-player-name" maxlength="10" placeholder="せんしゅめい（10文字まで）" autocomplete="off">
+          <p class="dialog-hint">※最初に入力した名前でセーブされ、いつでも続きから遊べます。</p>
+          <div class="dialog-actions">
+            <button id="btn-confirm-new-start" class="btn btn-primary btn-pulse">
+              <span>0問からスタート！ ▶</span>
             </button>
           </div>
         </div>
-
-        <button id="btn-mute" class="btn-mute" title="おとのON/OFF">🔊</button>
       </div>
-    </section>
+    </div>
 
-    <!-- ==================== 2. あそびかた画面 ==================== -->
-    <section id="screen-howto" class="screen hide">
-      <div class="modal-card">
-        <h2 class="modal-title">⚾ 果てなき育成ロードのルール＆育成のコツ</h2>
-        <div class="howto-body">
-          <div class="howto-rule-box">
-            <h3>🎯 エンドレス育成！何問でも続けて解ける！</h3>
-            <p>時間のカウントダウンはありません。<strong>分子（上）と分母（下）の両方を割り切れるボタン（2〜20）</strong>を選んでスイングしよう！</p>
-          </div>
-
-          <div class="howto-grid">
-            <div class="howto-card card-homerun">
-              <div class="howto-badge gold">かず方式</div>
-              <h4>🌟 一発ホームラン！（最大公約数）</h4>
-              <p>一撃で約分完了させると<strong>特大ホームラン</strong>！パワーが大きく伸びて長打力が覚醒！</p>
-              <div class="howto-formula">18/24 ➔ <strong>[ 6 ]</strong> 一発で <strong>3/4</strong>！💥</div>
-            </div>
-            <div class="howto-card card-hit">
-              <div class="howto-badge blue">りこ方式</div>
-              <h4>⚾ 繋ぎのヒット！（だんかい約分）</h4>
-              <p>2や3で小さく割っていってもOK！ヒットで出塁しミート力UP！最後に必ず約分完了させよう！</p>
-              <div class="howto-formula">18/24 ➔ [ 2 ] ➔ 9/12 ➔ [ 3 ] ➔ <strong>3/4</strong> 🏃</div>
-            </div>
-          </div>
-
-          <div class="howto-tips">
-            <p>🏆 <strong>果てなきランクアップ＆スキル習得！</strong>：正解を重ねるごとにランクが進化し、新しいスキル（特殊能力）を次々と獲得！S、SS、SSS、殿堂、神、無双∞へと永遠に強くなれる！</p>
-            <p>🌟 <strong>全国ランキングでスキルを自慢！</strong>：全国ランキングには、あなたのランクバッジ・自慢のスキル・能力値が誇らしげに掲載されます！ライバルに見せつけよう！</p>
-            <p>💾 <strong>いつでも休憩セーブ</strong>：右上の「きゅうけい」ボタンで、いつでもスプレッドシートに上書きセーブして休憩できるよ！</p>
-            <p>⚠️ <strong>3ストライクで三振チェンジ</strong>：割り切れない数を選ぶと空振り（0.8秒バット構え直し）。3回間違えると三振で次の問題へ！適当な連打は通じないぞ！</p>
+    <!-- ==================== モーダル: 記録の呼び出し ==================== -->
+    <div id="modal-start-load" class="modal-card-overlay hide">
+      <div class="modal-dialog-box">
+        <div class="modal-dialog-header">
+          <h3>📥 記録の呼び出し</h3>
+          <button id="btn-close-modal-load" class="modal-close-btn" title="とじる">✕</button>
+        </div>
+        <div class="modal-dialog-body">
+          <p class="dialog-instruction">とうろくした選手名を入力してね：</p>
+          <input type="text" id="input-load-player-name" maxlength="10" placeholder="とうろくした選手名" autocomplete="off">
+          <p class="dialog-hint">※前回の正解数・ホームラン・飛距離を呼び出して再開します。</p>
+          <div class="dialog-actions">
+            <button id="btn-confirm-load-start" class="btn btn-secondary">
+              <span>呼び出してスタート！ ▶</span>
+            </button>
           </div>
         </div>
-        <button id="btn-howto-close" class="btn btn-primary">わかった！（もどる）</button>
       </div>
-    </section>
+    </div>
 
     <!-- ==================== 3. 試合（エンドレス育成）画面 ==================== -->
     <section id="screen-game" class="screen hide">
