@@ -400,7 +400,13 @@
       <div class="modal-card ranking-modal">
         <div class="ranking-header">
           <h2>🏆 全国スラッガーランキング</h2>
-          <div class="ranking-sub">全国のライバルに自慢のスキルと能力を見せつけろ！</div>
+          <div class="ranking-sub">全国のライバルに自慢のスキルとホームラン記録を見せつけろ！</div>
+          <!-- ランキング切り替えタブ（問数 / 最長飛距離 / ホームラン数） -->
+          <div class="ranking-nav-tabs" id="ranking-nav-tabs">
+            <button class="rank-tab-btn active" data-tab="score">📚 正解問数</button>
+            <button class="rank-tab-btn" data-tab="distance">🚀 最長飛距離</button>
+            <button class="rank-tab-btn" data-tab="homerun">⚾ ホームラン数</button>
+          </div>
         </div>
 
         <div id="ranking-offline-alert" class="offline-alert hide">
@@ -433,8 +439,8 @@
             <thead>
               <tr>
                 <th style="width: 14%;">順位</th>
-                <th style="width: 60%;">選手 ＆ 自慢のスキル</th>
-                <th style="width: 26%; text-align: right;">通算問数</th>
+                <th style="width: 60%;">選手 ＆ 自慢の記録</th>
+                <th id="th-ranking-metric" style="width: 26%; text-align: right;">通算問数</th>
               </tr>
             </thead>
             <tbody id="ranking-tbody"></tbody>

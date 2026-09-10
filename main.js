@@ -189,6 +189,8 @@ const dom = {
 
   // ランキング画面
   btnRankingClose: document.getElementById('btn-ranking-close'),
+  thRankingMetric: document.getElementById('th-ranking-metric'),
+  rankingNavTabs: document.getElementById('ranking-nav-tabs'),
   rankingTbody: document.getElementById('ranking-tbody'),
   rankingLoading: document.getElementById('ranking-loading'),
   rankingOfflineAlert: document.getElementById('ranking-offline-alert'),
@@ -889,7 +891,7 @@ function showResult() {
   sendScoreToGAS();
 }
 
-// スプレッドシートへ上書き記録（何問解いたか）
+// スプレッドシートへ上書き記録（正解問数・本塁打数・最長飛距離・総飛距離）
 async function sendScoreToGAS() {
   dom.registerStatus.className = 'register-status-box';
 
@@ -899,10 +901,15 @@ async function sendScoreToGAS() {
     return;
   }
 
-  dom.registerMsg.textContent = '📡 統合スプレッドシートに通算記録を上書き中...';
+  dom.registerMsg.textContent = '📡 統合スプレッドシートに最新記録を上書き中...';
 
   try {
-    const res = await api.registerScore(state.playerName, state.totalSolved, state.sessionToken);
+    const battingStats = {
+      homeruns: state.totalHomeruns || 0,
+      maxDistance: state.maxDistance || 0,
+      totalDistance: state.totalDistance || 0
+    };
+    const res = await api.registerScore(state.playerName, state.totalSolved, state.sessionToken, battingStats);
     dom.registerStatus.classList.add('success');
     dom.registerMsg.textContent = `✅ スプレッドシートに上書き保存完了！ 全国第 ${res.rank || '-'} 位！`;
   } catch (err) {
@@ -911,7 +918,168 @@ async function sendScoreToGAS() {
   }
 }
 
-// ランキング表示（自慢のスキルと能力値を誇示するリッチカード一覧）
+// ランキング表示（3タブ切替：正解数・最長飛距離・HR数）
+let cachedRankingList = [];
+let currentRankingTab = 'score'; // 'score' | 'distance' | 'homerun'
+
+function renderRankingTable(tab) {
+  currentRankingTab = tab || currentRankingTab;
+
+  // タブボタンのアクティブ更新
+  document.querySelectorAll('.rank-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === currentRankingTab);
+  });
+
+  // ヘッダータイトルの更新
+  if (dom.thRankingMetric) {
+    if (currentRankingTab === 'distance') {
+      dom.thRankingMetric.textContent = '最長飛距離';
+    } else if (currentRankingTab === 'homerun') {
+      dom.thRankingMetric.textContent = '本塁打数';
+    } else {
+      dom.thRankingMetric.textContent = '通算問数';
+    }
+  }
+
+  // ソート処理
+  const sorted = [...cachedRankingList];
+  sorted.sort((a, b) => {
+    if (currentRankingTab === 'distance') {
+      const distDiff = (Number(b.maxDistance) || 0) - (Number(a.maxDistance) || 0);
+      if (distDiff !== 0) return distDiff;
+      const hrDiff = (Number(b.homeruns) || 0) - (Number(a.homeruns) || 0);
+      if (hrDiff !== 0) return hrDiff;
+      return (Number(b.score) || 0) - (Number(a.score) || 0);
+    } else if (currentRankingTab === 'homerun') {
+      const hrDiff = (Number(b.homeruns) || 0) - (Number(a.homeruns) || 0);
+      if (hrDiff !== 0) return hrDiff;
+      const distDiff = (Number(b.maxDistance) || 0) - (Number(a.maxDistance) || 0);
+      if (distDiff !== 0) return distDiff;
+      return (Number(b.score) || 0) - (Number(a.score) || 0);
+    } else {
+      const scoreDiff = (Number(b.score) || 0) - (Number(a.score) || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (Number(b.maxDistance) || 0) - (Number(a.maxDistance) || 0);
+    }
+  });
+
+  if (sorted.length === 0) {
+    dom.rankingTbody.innerHTML = '<tr><td colspan="3" class="ranking-loading">まだ記録がありません。一番乗りで記録しよう！</td></tr>';
+    updateMyRankCardInTab(sorted);
+    return;
+  }
+
+  let rowsHtml = '';
+  sorted.slice(0, 50).forEach((item, index) => {
+    const rank = index + 1;
+    let topClass = '';
+    if (rank === 1) topClass = 'top-1';
+    else if (rank === 2) topClass = 'top-2';
+    else if (rank === 3) topClass = 'top-3';
+
+    const rankBadge = rank === 1 ? '🥇 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : `${rank}`;
+    const solved = Number(item.score) || 0;
+    const hr = Number(item.homeruns) || 0;
+    const maxDist = Number(item.maxDistance) || 0;
+    const totalDist = Number(item.totalDistance) || 0;
+
+    const overallRank = calcOverallRank(solved);
+    const rankClass = getRankClass(overallRank);
+    const primarySkill = getPrimarySkill(solved);
+    const traj = calcTrajectory(solved);
+    const trajName = getTrajectoryName(traj);
+    const meetVal = calcMeet(solved);
+    const meetGrade = getGrade(meetVal);
+    const powerVal = calcPower(hr);
+    const powerGrade = getGrade(powerVal);
+
+    let metricHtml = '';
+    if (currentRankingTab === 'distance') {
+      metricHtml = `<strong style="color:var(--gold); font-size:1.15rem;">${maxDist.toLocaleString()}</strong> m`;
+    } else if (currentRankingTab === 'homerun') {
+      metricHtml = `<strong style="color:#f87171; font-size:1.15rem;">${hr.toLocaleString()}</strong> 本`;
+    } else {
+      metricHtml = `<strong>${solved.toLocaleString()}</strong> 問`;
+    }
+
+    rowsHtml += `
+      <tr class="${topClass} ranking-row-card">
+        <td class="col-rank">${rankBadge}</td>
+        <td class="col-player">
+          <div class="rp-header">
+            <span class="rp-name">${escapeHtml(item.name)}</span>
+            <span class="player-rank-badge ${rankClass}">${overallRank}</span>
+          </div>
+          <div class="rp-skill-line">
+            <span class="primary-skill-tag">🌟 【${escapeHtml(primarySkill)}】</span>
+            <span class="rp-stats">弾道:${trajName} M:${meetGrade}${meetVal} P:${powerGrade}${powerVal}</span>
+          </div>
+          <div class="rp-records-row">
+            <span class="rec-chip">正解: <strong>${solved}</strong>問</span>
+            <span class="rec-chip chip-hr">⚾ HR: <strong>${hr}</strong>本</span>
+            <span class="rec-chip chip-dist">🚀 最長: <strong>${maxDist}</strong>m</span>
+            ${totalDist > 0 ? `<span class="rec-chip">総: <strong>${totalDist.toLocaleString()}</strong>m</span>` : ''}
+          </div>
+        </td>
+        <td class="col-score">${metricHtml}</td>
+      </tr>
+    `;
+  });
+  dom.rankingTbody.innerHTML = rowsHtml;
+
+  // あなたの自慢カード更新
+  updateMyRankCardInTab(sorted);
+}
+
+function updateMyRankCardInTab(sortedList) {
+  if (!dom.myRankCard) return;
+
+  const mySolved = state.totalSolved;
+  const myHr = state.totalHomeruns || 0;
+  const myMaxDist = state.maxDistance || 0;
+  const myTotalDist = state.totalDistance || 0;
+
+  // sortedList 内で自分の順位を探す
+  let myIndex = -1;
+  if (sortedList && sortedList.length > 0 && state.playerName) {
+    myIndex = sortedList.findIndex(item => item.name === state.playerName);
+  }
+
+  const myRankNum = myIndex !== -1 ? (myIndex + 1) : '-';
+  dom.myRankBadge.textContent = `あなた: 第 ${myRankNum} 位`;
+  dom.myRankName.textContent = escapeHtml(state.playerName || 'スラッガー');
+
+  const myRankStr = calcOverallRank(mySolved);
+  const myRankClass = getRankClass(myRankStr);
+  if (dom.myRankGrade) {
+    dom.myRankGrade.textContent = myRankStr;
+    dom.myRankGrade.className = `player-rank-badge ${myRankClass}`;
+  }
+
+  if (dom.myRankScore) {
+    if (currentRankingTab === 'distance') {
+      dom.myRankScore.innerHTML = `<span style="color:var(--gold); font-size:1.1rem; font-weight:bold;">${myMaxDist} m</span>`;
+    } else if (currentRankingTab === 'homerun') {
+      dom.myRankScore.innerHTML = `<span style="color:#f87171; font-size:1.1rem; font-weight:bold;">${myHr} 本</span>`;
+    } else {
+      dom.myRankScore.textContent = `${mySolved.toLocaleString()} 問`;
+    }
+  }
+
+  if (dom.myRankSkill) {
+    dom.myRankSkill.textContent = `🌟 【${getPrimarySkill(mySolved)}】`;
+  }
+
+  if (dom.myRankStats) {
+    const myTraj = calcTrajectory(mySolved);
+    const myMeet = calcMeet(mySolved);
+    const myPower = calcPower(myHr);
+    dom.myRankStats.innerHTML = `弾道: ${getTrajectoryName(myTraj)} / M: ${getGrade(myMeet)} ${myMeet} / P: ${getGrade(myPower)} ${myPower} | ⚾ 本塁打: <strong>${myHr}</strong>本 / 🚀 最長: <strong>${myMaxDist}</strong>m / 📏 総飛距離: <strong>${myTotalDist.toLocaleString()}</strong>m`;
+  }
+
+  dom.myRankCard.classList.remove('hide');
+}
+
 async function openRankingModal() {
   showScreen('ranking');
   dom.rankingOfflineAlert.classList.add('hide');
@@ -922,85 +1090,19 @@ async function openRankingModal() {
   if (!api.isOnline()) {
     dom.rankingLoading.classList.add('hide');
     dom.rankingOfflineAlert.classList.remove('hide');
+    updateMyRankCardInTab([]);
     return;
   }
 
   try {
     const list = await api.getRanking(state.playerName);
     dom.rankingLoading.classList.add('hide');
-
-    if (!list || list.length === 0) {
-      dom.rankingTbody.innerHTML = '<tr><td colspan="3" class="ranking-loading">まだ記録がありません。一番乗りで記録しよう！</td></tr>';
-      return;
-    }
-
-    let rowsHtml = '';
-    list.slice(0, 50).forEach((item, index) => {
-      const rank = index + 1;
-      let topClass = '';
-      if (rank === 1) topClass = 'top-1';
-      else if (rank === 2) topClass = 'top-2';
-      else if (rank === 3) topClass = 'top-3';
-
-      const rankBadge = rank === 1 ? '🥇 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : `${rank}`;
-      const solved = Number(item.score) || 0;
-      const overallRank = calcOverallRank(solved);
-      const rankClass = getRankClass(overallRank);
-      const primarySkill = getPrimarySkill(solved);
-      const traj = calcTrajectory(solved);
-      const trajName = getTrajectoryName(traj);
-      const meetVal = calcMeet(solved);
-      const meetGrade = getGrade(meetVal);
-      const estHr = Math.floor(solved * 0.7);
-      const powerVal = calcPower(estHr);
-      const powerGrade = getGrade(powerVal);
-
-      rowsHtml += `
-        <tr class="${topClass} ranking-row-card">
-          <td class="col-rank">${rankBadge}</td>
-          <td class="col-player">
-            <div class="rp-header">
-              <span class="rp-name">${escapeHtml(item.name)}</span>
-              <span class="player-rank-badge ${rankClass}">${overallRank}</span>
-            </div>
-            <div class="rp-skill-line">
-              <span class="primary-skill-tag">🌟 【${escapeHtml(primarySkill)}】</span>
-              <span class="rp-stats">弾道:${trajName} M:${meetGrade}${meetVal} P:${powerGrade}${powerVal}</span>
-            </div>
-          </td>
-          <td class="col-score"><strong>${solved.toLocaleString()}</strong> 問</td>
-        </tr>
-      `;
-    });
-    dom.rankingTbody.innerHTML = rowsHtml;
-
-    if (list.myRank) {
-      dom.myRankCard.classList.remove('hide');
-      const mySolved = state.totalSolved;
-      const myRankStr = calcOverallRank(mySolved);
-      const myRankClass = getRankClass(myRankStr);
-      const myPrimarySkill = getPrimarySkill(mySolved);
-      const myTraj = calcTrajectory(mySolved);
-      const myMeet = calcMeet(mySolved);
-      const myPower = calcPower(state.totalHomeruns);
-
-      dom.myRankBadge.textContent = `あなた: 第 ${list.myRank.rank} 位`;
-      dom.myRankName.textContent = escapeHtml(list.myRank.name);
-      if (dom.myRankGrade) {
-        dom.myRankGrade.textContent = myRankStr;
-        dom.myRankGrade.className = `player-rank-badge ${myRankClass}`;
-      }
-      dom.myRankScore.textContent = `${mySolved.toLocaleString()} 問`;
-      if (dom.myRankSkill) {
-        dom.myRankSkill.textContent = `🌟 【${myPrimarySkill}】`;
-      }
-      if (dom.myRankStats) {
-        dom.myRankStats.textContent = `弾道: ${getTrajectoryName(myTraj)} / M: ${getGrade(myMeet)} ${myMeet} / P: ${getGrade(myPower)} ${myPower} | 本塁打: ${state.totalHomeruns}本 / 最長: ${state.maxDistance || 0}m / 総飛距離: ${(state.totalDistance || 0).toLocaleString()}m`;
-      }
-    }
+    cachedRankingList = list || [];
+    renderRankingTable(currentRankingTab || 'score');
   } catch (err) {
     dom.rankingLoading.classList.add('hide');
     dom.rankingTbody.innerHTML = `<tr><td colspan="3" class="ranking-loading">ランキングの取得に失敗しました (${err.message})</td></tr>`;
+    updateMyRankCardInTab([]);
   }
 }
 
@@ -1854,6 +1956,15 @@ function initEvents() {
     } else {
       showScreen('title');
     }
+  });
+
+  // ランキングタブ切替（正解問数 / 最長飛距離 / ホームラン数）
+  document.querySelectorAll('.rank-tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      sounds.playClick();
+      const tab = e.currentTarget.getAttribute('data-tab');
+      renderRankingTable(tab);
+    });
   });
 
   // ⚾ バッティング画面イベントリスナー

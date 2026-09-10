@@ -25,8 +25,8 @@ const api = {
     }
   },
 
-  // スコア登録（オンライン必須）
-  async registerScore(name, score, token) {
+  // スコア・記録登録（オンライン必須）
+  async registerScore(name, score, token, battingStats) {
     if (USE_MOCK) {
       console.log(`Mock Register: ${name}, ${score}`);
       return new Promise(resolve => setTimeout(() => resolve({ success: true, rank: 1, totalPlayers: 10 }), 500));
@@ -37,18 +37,26 @@ const api = {
       throw new Error("OFFLINE");
     }
 
+    const payload = {
+      action: 'register',
+      unit: CURRENT_UNIT,
+      name: name,
+      score: score,
+      token: token || ("t_" + Date.now())
+    };
+
+    if (battingStats) {
+      payload.homeruns = battingStats.homeruns || 0;
+      payload.maxDistance = battingStats.maxDistance || 0;
+      payload.totalDistance = battingStats.totalDistance || 0;
+    }
+
     const res = await fetch(GAS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8' // CORSプリフライト回避
       },
-      body: JSON.stringify({
-        action: 'register',
-        unit: CURRENT_UNIT,
-        name: name,
-        score: score,
-        token: token || ("t_" + Date.now())
-      })
+      body: JSON.stringify(payload)
     });
 
     const json = await res.json();
