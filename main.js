@@ -499,14 +499,14 @@ function updateHud() {
 // ==========================================================================
 // ゲーム開始（選手呼び出し・新規作成）
 // ==========================================================================
-async function startTraining(playerName) {
+function startTraining(playerName) {
   const cleanName = playerName.trim().substring(0, 10) || 'スラッガー';
   state.playerName = cleanName;
 
-  // セッショントークン
-  api.getSessionToken().then(t => state.sessionToken = t);
+  // セッショントークン（非同期でバックグラウンド取得）
+  api.getSessionToken().then(t => state.sessionToken = t).catch(() => {});
 
-  // 1. ローカルデータのロード
+  // 1. ローカルデータから即座にロード（0ミリ秒で高速起動！）
   const localData = loadLocalPlayerData(cleanName);
   if (localData) {
     state.totalSolved = localData.totalSolved || 0;
@@ -526,22 +526,6 @@ async function startTraining(playerName) {
     state.abilities = getSkillsForSolved(0);
   }
 
-  // 2. スプレッドシートから最新データの同期確認（オンライン時）
-  if (api.isOnline()) {
-    try {
-      const ranking = await api.getRanking(cleanName);
-      if (ranking && ranking.myRank && typeof ranking.myRank.score === 'number') {
-        // スプレッドシートの解いた問数の方が進んでいればマージ
-        if (ranking.myRank.score > state.totalSolved) {
-          state.totalSolved = ranking.myRank.score;
-          state.abilities = getSkillsForSolved(state.totalSolved);
-        }
-      }
-    } catch (e) {
-      console.warn("GAS load fallback to local:", e);
-    }
-  }
-
   if (state.totalHomeruns >= 100) state.abilities.add('超アーチスト');
   if (state.totalHomeruns >= 300) state.abilities.add('世界のホームラン王');
 
@@ -558,12 +542,29 @@ async function startTraining(playerName) {
   dom.stepHintBox.classList.add('hide');
   dom.divisorGrid.classList.remove('locked');
 
+  // ★ 待たずに即座にゲーム画面へ遷移！
   showScreen('game');
   sounds.playPlayBall();
   updateHud();
   announce(`プレイボール！${state.playerName}選手、公約数を見つけて約分しよう！`);
-
   setupProblem();
+
+  // 2. スプレッドシートとの同期（バックグラウンドで非同期実行・ゲーム開始を絶対に待たせない）
+  if (api.isOnline()) {
+    api.getRanking(cleanName).then(ranking => {
+      if (ranking && ranking.myRank && typeof ranking.myRank.score === 'number') {
+        // 別端末などでスプレッドシートの記録が進んでいれば自動マージ
+        if (ranking.myRank.score > state.totalSolved) {
+          state.totalSolved = ranking.myRank.score;
+          state.abilities = getSkillsForSolved(state.totalSolved);
+          updateHud();
+          saveLocalPlayerData();
+        }
+      }
+    }).catch(e => {
+      console.warn("GAS background sync fallback to local:", e);
+    });
+  }
 }
 
 function shuffleProblems() {
@@ -1767,6 +1768,7 @@ function initEvents() {
   // つづきからスタート
   dom.btnResumeStart.addEventListener('click', () => {
     sounds.init();
+    sounds.playClick();
     const lastPlayer = localStorage.getItem(STORAGE_CURRENT_PLAYER);
     if (lastPlayer) {
       startTraining(lastPlayer);
@@ -1781,6 +1783,7 @@ function initEvents() {
       alert("選手名（なまえ）をいれてね！");
       return;
     }
+    sounds.playClick();
     startTraining(name);
   });
 
