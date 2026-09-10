@@ -17,8 +17,13 @@ const api = {
       return "token_" + Date.now();
     }
     try {
-      const res = await fetch(GAS_URL + "?action=getSession", { method: 'GET' });
-      const json = await res.json();
+      const res = await fetch(GAS_URL + "?action=getSession", { 
+        method: 'GET',
+        credentials: 'omit',
+        redirect: 'follow'
+      });
+      const text = await res.text();
+      const json = JSON.parse(text);
       return json.token || ("session_" + Date.now());
     } catch (e) {
       return "token_" + Date.now();
@@ -53,20 +58,30 @@ const api = {
 
     const res = await fetch(GAS_URL, {
       method: 'POST',
+      credentials: 'omit',
+      redirect: 'follow',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8' // CORSプリフライト回避
       },
       body: JSON.stringify(payload)
     });
 
-    const json = await res.json();
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      console.error("registerScore parsing failed:", text.substring(0, 200));
+      throw new Error("通信エラーが発生しました");
+    }
+
     if (!json.success) {
       throw new Error(json.error || '登録失敗');
     }
     return json;
   },
 
-  // ランキング取得（nameを指定すると自分の順位も取得）
+  // ランキング取得（POSTを優先し、Googleアカウント認証競合・AccountChooserリダイレクトを完全回避）
   async getRanking(name) {
     if (USE_MOCK) {
       return new Promise(resolve => setTimeout(() => {
@@ -85,19 +100,67 @@ const api = {
       throw new Error("OFFLINE");
     }
 
+    const payload = {
+      action: 'getRanking',
+      unit: CURRENT_UNIT
+    };
+    if (name) {
+      payload.name = name;
+    }
+
+    // ★ まず安全なPOST（text/plain Simple Request）で試行（GoogleアカウントCookieの干渉を受けない）
+    try {
+      const postRes = await fetch(GAS_URL, {
+        method: 'POST',
+        credentials: 'omit',
+        redirect: 'follow',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+      const postText = await postRes.text();
+      const postJson = JSON.parse(postText);
+      if (postJson && postJson.success && Array.isArray(postJson.data)) {
+        const list = postJson.data;
+        list.myRank = postJson.myRank || null;
+        list.totalPlayers = postJson.totalPlayers || list.length;
+        return list;
+      }
+    } catch (postErr) {
+      console.warn("POST getRanking failed, trying GET fallback:", postErr);
+    }
+
+    // ★ POSTが万一失敗した場合はGETフォールバック
     let url = `${GAS_URL}?action=getRanking&unit=${CURRENT_UNIT}`;
     if (name) {
       url += `&name=${encodeURIComponent(name)}`;
     }
+    url += `&_t=${Date.now()}`; // キャッシュバスター
 
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json && json.success && Array.isArray(json.data)) {
-      const list = json.data;
-      list.myRank = json.myRank || null;
-      list.totalPlayers = json.totalPlayers || list.length;
+    const getRes = await fetch(url, {
+      method: 'GET',
+      credentials: 'omit',
+      redirect: 'follow'
+    });
+    const getText = await getRes.text();
+    let getJson;
+    try {
+      getJson = JSON.parse(getText);
+    } catch (e) {
+      console.error("GET getRanking parsing failed:", getText.substring(0, 200));
+      if (getText.trim().startsWith('<')) {
+        throw new Error('Googleアカウントの認証競合が発生しました。別タブのGoogleアカウントを確認するか、しばらく待って再読み込みしてください。');
+      }
+      throw new Error('ランキングの解析に失敗しました');
+    }
+
+    if (getJson && getJson.success && Array.isArray(getJson.data)) {
+      const list = getJson.data;
+      list.myRank = getJson.myRank || null;
+      list.totalPlayers = getJson.totalPlayers || list.length;
       return list;
     }
-    throw new Error(json.error || '取得失敗');
+    throw new Error(getJson ? getJson.error : 'ランキング取得失敗');
   }
 };
