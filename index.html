@@ -339,6 +339,55 @@
         <div class="hr-dist" id="batting-hr-dist-text">推定飛距離 145m！</div>
       </div>
 
+      <!-- 対戦相手ルーレット（スロット抽選）モーダル -->
+      <div id="batting-roulette-modal" class="batting-roulette-modal hide">
+        <div class="roulette-container">
+          <div class="roulette-header">
+            <span class="roulette-title-badge">🎰 MATCHUP ROULETTE 🎰</span>
+            <h2 class="roulette-title">対戦相手を抽選中！</h2>
+          </div>
+
+          <div class="roulette-window-wrapper">
+            <div class="roulette-pointer left">▶</div>
+            <div class="roulette-pointer right">◀</div>
+            <div class="roulette-target-frame"></div>
+            <div id="roulette-reel-window" class="roulette-reel-window">
+              <div id="roulette-reel-strip" class="roulette-reel-strip">
+                <!-- 動的に生成されるライバル投手カード一覧 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 手動STOPボタン（子どもたちがタップして止められる） -->
+          <div class="roulette-action-area">
+            <button id="btn-roulette-stop" class="btn-roulette-stop" type="button">
+              <span class="stop-icon">🛑</span> STOP!!
+            </button>
+            <div class="roulette-tip">※ タップでSTOP！ または自動で止まります</div>
+          </div>
+        </div>
+
+        <!-- 決定時のインパクトカード（ズームアップ＆フラッシュ） -->
+        <div id="roulette-decided-card" class="roulette-decided-card hide">
+          <div class="decided-badge">🔥 対戦相手決定！ 🔥</div>
+          <div class="decided-pitcher-box">
+            <div class="decided-header-row">
+              <span class="decided-tag">相手投手</span>
+              <span id="roulette-decided-rank" class="rival-rank-badge rank-s">S</span>
+            </div>
+            <div class="decided-name-row">
+              <div id="roulette-decided-name" class="decided-name">稜久くん 投手</div>
+              <div id="roulette-decided-sub" class="decided-sub">全国1位 / 89本塁打</div>
+            </div>
+            <div class="decided-stats-row">
+              <span>MAX: <strong id="roulette-decided-speed">164 km/h</strong></span>
+              <span>球種: <strong id="roulette-decided-pitches">火の玉ストレート・フォーク</strong></span>
+            </div>
+          </div>
+          <div class="decided-playball-text">PLAY BALL !!</div>
+        </div>
+      </div>
+
       <!-- タブレット・スマホ用特大スイングボタン -->
       <button id="btn-batting-swing-touch" class="btn-batting-touch" tabindex="-1">
         <span>打つ！</span>

@@ -405,6 +405,48 @@ class SoundEffectManager {
       noise.start();
     } catch(e) {}
   }
+
+  // ルーレット回転チクタク音（小気味よいスロット回転音）
+  playRouletteTick() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(950, t);
+      osc.frequency.exponentialRampToValueAtTime(450, t + 0.035);
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.linearRampToValueAtTime(0.01, t + 0.035);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.035);
+    } catch(e) {}
+  }
+
+  // 対戦相手決定ファンファーレ（ド派手な決定インパクト音）
+  playRouletteDecided() {
+    if (this.muted) return;
+    this.init();
+    try {
+      const t = this.ctx.currentTime;
+      const freqs = [587.33, 880.00, 1174.66]; // D-A-D 和音
+      freqs.forEach((f, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, t + idx * 0.04);
+        gain.gain.setValueAtTime(0.28, t + idx * 0.04);
+        gain.gain.linearRampToValueAtTime(0.01, t + idx * 0.04 + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t + idx * 0.04);
+        osc.stop(t + idx * 0.04 + 0.45);
+      });
+    } catch(e) {}
+  }
 }
 
 const sounds = new SoundEffectManager();

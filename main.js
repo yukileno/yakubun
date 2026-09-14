@@ -203,6 +203,18 @@ const dom = {
   battingPitchCallout: document.getElementById('batting-pitch-callout'),
   battingPitchCalloutType: document.getElementById('batting-pitch-callout-type'),
 
+  // 対戦相手ルーレットモーダル
+  battingRouletteModal: document.getElementById('batting-roulette-modal'),
+  rouletteReelWindow: document.getElementById('roulette-reel-window'),
+  rouletteReelStrip: document.getElementById('roulette-reel-strip'),
+  btnRouletteStop: document.getElementById('btn-roulette-stop'),
+  rouletteDecidedCard: document.getElementById('roulette-decided-card'),
+  rouletteDecidedRank: document.getElementById('roulette-decided-rank'),
+  rouletteDecidedName: document.getElementById('roulette-decided-name'),
+  rouletteDecidedSub: document.getElementById('roulette-decided-sub'),
+  rouletteDecidedSpeed: document.getElementById('roulette-decided-speed'),
+  rouletteDecidedPitches: document.getElementById('roulette-decided-pitches'),
+
   // ランキング画面
   btnRankingClose: document.getElementById('btn-ranking-close'),
   thRankingMetric: document.getElementById('th-ranking-metric'),
@@ -1242,6 +1254,9 @@ function clearBattingTimers() {
     clearTimeout(tid);
   }
   bTimers = [];
+  if (typeof clearRouletteAnimation === 'function') {
+    clearRouletteAnimation();
+  }
 }
 
 const bStrikeZone = {
@@ -1438,6 +1453,275 @@ function selectRivalPitcher() {
   return buildPitcherProfile(candidate, rankPos);
 }
 
+function getRivalCandidatesPool() {
+  let pool = [...cachedRankingList].filter(item => {
+    return item && item.name && item.name !== state.playerName && item.name !== 'テスト' && item.name !== 'てすと';
+  });
+
+  if (pool.length === 0) {
+    pool = [...DEFAULT_RIVAL_PITCHERS];
+  }
+
+  pool.sort((a, b) => {
+    const aPts = (Number(a.score) || 0) + (Number(a.homeruns) || 0) * 2;
+    const bPts = (Number(b.score) || 0) + (Number(b.homeruns) || 0) * 2;
+    return bPts - aPts;
+  });
+
+  return pool.map((cand, idx) => buildPitcherProfile(cand, idx + 1));
+}
+
+function renderRouletteCard(cardEl, pitcher) {
+  cardEl.className = 'roulette-card-item';
+  const gradeChar = (pitcher.grade || 'D').toLowerCase().charAt(0);
+  cardEl.innerHTML = `
+    <span class="rival-rank-badge rank-${gradeChar}">${pitcher.grade || 'D'}</span>
+    <div class="roulette-card-center">
+      <span class="roulette-card-name">${escapeHtml(pitcher.name)} 投手</span>
+      <span class="roulette-card-sub">${escapeHtml(pitcher.subTitle || '')}</span>
+    </div>
+    <div class="roulette-card-speed">${pitcher.maxSpeedKmh || 120} km/h</div>
+  `;
+}
+
+function updateBattingRivalCard(pitcher) {
+  if (!pitcher || !dom.battingRivalCard) return;
+  if (dom.battingRivalName) dom.battingRivalName.textContent = `${pitcher.name} 投手`;
+  if (dom.battingRivalSub) dom.battingRivalSub.textContent = pitcher.subTitle;
+  if (dom.battingRivalRankBadge) {
+    dom.battingRivalRankBadge.textContent = pitcher.grade;
+    dom.battingRivalRankBadge.className = `rival-rank-badge rank-${pitcher.grade.toLowerCase().charAt(0)}`;
+  }
+  if (dom.battingRivalSpeed) dom.battingRivalSpeed.textContent = `${pitcher.maxSpeedKmh} km/h`;
+  if (dom.battingRivalPitches) dom.battingRivalPitches.textContent = pitcher.pitchLabels.join('・');
+  if (dom.battingRivalControl) dom.battingRivalControl.textContent = pitcher.controlLabel;
+  dom.battingRivalCard.classList.remove('hide-rival');
+}
+
+let rouletteAnimId = null;
+
+function clearRouletteAnimation() {
+  if (rouletteAnimId) {
+    cancelAnimationFrame(rouletteAnimId);
+    rouletteAnimId = null;
+  }
+}
+
+function startRivalRoulette(targetPitcher, onComplete) {
+  clearRouletteAnimation();
+
+  if (!dom.battingRouletteModal || !dom.rouletteReelStrip) {
+    if (onComplete) onComplete(targetPitcher);
+    return;
+  }
+
+  // リール要素初期化
+  dom.rouletteReelStrip.innerHTML = '';
+  dom.rouletteReelStrip.style.transform = 'translate3d(0, 0, 0)';
+
+  const pool = getRivalCandidatesPool();
+  const CARD_HEIGHT = 72;
+  const TOTAL_CARDS = 38;
+  const cardElements = [];
+
+  for (let i = 0; i < TOTAL_CARDS; i++) {
+    const cardEl = document.createElement('div');
+    const randomPitcher = pool[Math.floor(Math.random() * pool.length)] || targetPitcher;
+    renderRouletteCard(cardEl, randomPitcher);
+    dom.rouletteReelStrip.appendChild(cardEl);
+    cardElements.push(cardEl);
+  }
+
+  // 初期UI状態
+  dom.battingRouletteModal.classList.remove('hide');
+  if (dom.rouletteDecidedCard) {
+    dom.rouletteDecidedCard.classList.remove('show');
+    dom.rouletteDecidedCard.classList.add('hide');
+  }
+  if (dom.btnRouletteStop) {
+    dom.btnRouletteStop.disabled = false;
+    dom.btnRouletteStop.style.opacity = '1';
+  }
+
+  let roulettePos = 0;
+  let rouletteState = 'SPINNING'; // 'SPINNING' | 'STOPPING' | 'DECIDED'
+  let spinSpeed = 950; // px/sec
+  let lastTime = performance.now();
+  let stopStartTime = 0;
+  let stopStartPos = 0;
+  const stopDuration = 1050; // ms 減速時間
+  let winnerIndex = -1;
+  let finalTargetY = 0;
+  let lastTickIndex = -1;
+
+  // STOPトリガー（手動タップ・ボタン・自動タイマー・キーボード共通）
+  const triggerStop = () => {
+    if (rouletteState !== 'SPINNING') return;
+    rouletteState = 'STOPPING';
+    stopStartTime = performance.now();
+    stopStartPos = roulettePos;
+
+    if (dom.btnRouletteStop) {
+      dom.btnRouletteStop.disabled = true;
+      dom.btnRouletteStop.style.opacity = '0.5';
+    }
+
+    // 現在位置から5枚先を当選カードにする
+    const currentCardIdx = Math.floor(roulettePos / CARD_HEIGHT);
+    winnerIndex = Math.min(TOTAL_CARDS - 3, Math.max(3, currentCardIdx + 5));
+
+    // 当選カードの位置に targetPitcher を確実に配置
+    if (cardElements[winnerIndex]) {
+      renderRouletteCard(cardElements[winnerIndex], targetPitcher);
+    }
+
+    // 高さ216pxのウィンドウ中央（top: 72px）に winnerIndex のカードをピタリと配置
+    finalTargetY = (winnerIndex - 1) * CARD_HEIGHT;
+  };
+
+  // 自動停止タイマー（1.5秒経過で自動停止）
+  const autoTimer = setTimeout(() => {
+    if (rouletteState === 'SPINNING') {
+      triggerStop();
+    }
+  }, 1500);
+
+  // イベントハンドラ
+  const handleStopClick = (e) => {
+    if (e) e.stopPropagation();
+    triggerStop();
+  };
+
+  if (dom.btnRouletteStop) {
+    dom.btnRouletteStop.onclick = handleStopClick;
+  }
+  dom.battingRouletteModal.onclick = () => {
+    if (rouletteState === 'SPINNING') triggerStop();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      if (rouletteState === 'SPINNING') triggerStop();
+    }
+  };
+  window.addEventListener('keydown', handleKeyDown);
+
+  const cleanupListeners = () => {
+    clearTimeout(autoTimer);
+    window.removeEventListener('keydown', handleKeyDown);
+    if (dom.btnRouletteStop) dom.btnRouletteStop.onclick = null;
+    if (dom.battingRouletteModal) dom.battingRouletteModal.onclick = null;
+  };
+
+  // 決定演出（フラッシュ、インパクト表示、対決突入）
+  const completeRoulette = () => {
+    rouletteState = 'DECIDED';
+    clearRouletteAnimation();
+    cleanupListeners();
+
+    // 当選カードを金色ハイライト
+    if (cardElements[winnerIndex]) {
+      cardElements[winnerIndex].classList.add('winner-highlight');
+    }
+
+    // ド派手な決定ファンファーレ＆画面ホワイトアウト閃光
+    sounds.playRouletteDecided();
+    if (dom.battingImpactFlash) {
+      dom.battingImpactFlash.classList.add('flash');
+      setTimeout(() => {
+        if (dom.battingImpactFlash) dom.battingImpactFlash.classList.remove('flash');
+      }, 180);
+    }
+
+    // 決定カード（カットイン演出）の表示
+    if (dom.rouletteDecidedCard) {
+      if (dom.rouletteDecidedRank) {
+        dom.rouletteDecidedRank.textContent = targetPitcher.grade;
+        dom.rouletteDecidedRank.className = `rival-rank-badge rank-${targetPitcher.grade.toLowerCase().charAt(0)}`;
+      }
+      if (dom.rouletteDecidedName) dom.rouletteDecidedName.textContent = `${targetPitcher.name} 投手`;
+      if (dom.rouletteDecidedSub) dom.rouletteDecidedSub.textContent = targetPitcher.subTitle;
+      if (dom.rouletteDecidedSpeed) dom.rouletteDecidedSpeed.textContent = `${targetPitcher.maxSpeedKmh} km/h`;
+      if (dom.rouletteDecidedPitches) dom.rouletteDecidedPitches.textContent = targetPitcher.pitchLabels.join('・');
+
+      dom.rouletteDecidedCard.classList.remove('hide');
+      dom.rouletteDecidedCard.classList.add('show');
+    }
+
+    // 950ms 表示後、モーダルをフェードアウトしてバッティング画面へ合流
+    addBattingTimer(() => {
+      if (dom.rouletteDecidedCard) {
+        dom.rouletteDecidedCard.classList.remove('show');
+        dom.rouletteDecidedCard.classList.add('hide');
+      }
+      if (dom.battingRouletteModal) {
+        dom.battingRouletteModal.classList.add('hide');
+      }
+
+      sounds.playPlayBall();
+
+      if (onComplete) {
+        onComplete(targetPitcher);
+      }
+    }, 950);
+  };
+
+  // アニメーションループ
+  const animateRoulette = (now) => {
+    if (!bBattingActive) {
+      clearRouletteAnimation();
+      cleanupListeners();
+      return;
+    }
+
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    if (rouletteState === 'SPINNING') {
+      roulettePos += spinSpeed * dt;
+
+      // チクタク音判定（カード1枚通過ごと）
+      const tickIdx = Math.floor((roulettePos + CARD_HEIGHT * 0.5) / CARD_HEIGHT);
+      if (tickIdx !== lastTickIndex) {
+        lastTickIndex = tickIdx;
+        sounds.playRouletteTick();
+      }
+
+      if (roulettePos >= (TOTAL_CARDS - 7) * CARD_HEIGHT) {
+        triggerStop();
+      }
+    } else if (rouletteState === 'STOPPING') {
+      const elapsed = now - stopStartTime;
+      const progress = Math.min(1.0, elapsed / stopDuration);
+      // 滑らかな3次イーズアウト（急激なカクつきを完全排除）
+      const ease = 1 - Math.pow(1 - progress, 3);
+      roulettePos = stopStartPos + (finalTargetY - stopStartPos) * ease;
+
+      // 減速中のチクタク音判定（間隔が徐々に広がる）
+      const tickIdx = Math.floor((roulettePos + CARD_HEIGHT * 0.5) / CARD_HEIGHT);
+      if (tickIdx !== lastTickIndex) {
+        lastTickIndex = tickIdx;
+        sounds.playRouletteTick();
+      }
+
+      if (progress >= 1.0) {
+        roulettePos = finalTargetY;
+        dom.rouletteReelStrip.style.transform = `translate3d(0, -${roulettePos}px, 0)`;
+        completeRoulette();
+        return;
+      }
+    }
+
+    dom.rouletteReelStrip.style.transform = `translate3d(0, -${roulettePos}px, 0)`;
+
+    if (rouletteState !== 'DECIDED') {
+      rouletteAnimId = requestAnimationFrame(animateRoulette);
+    }
+  };
+
+  rouletteAnimId = requestAnimationFrame(animateRoulette);
+}
+
 function calcPitchTrajectory(pitchType, safeProgress, breakDir = 1) {
   let offsetX = 0;
   let offsetY = 0;
@@ -1571,43 +1855,42 @@ function startRewardBatting() {
   bBall.hitResult = null;
   bTrackingBall.active = false;
 
-  // 相手（ライバル）投手の選出＆HUD反映
+  // 相手（ライバル）投手の選出
   currentRivalPitcher = selectRivalPitcher();
 
-  if (dom.battingRivalCard) {
-    if (dom.battingRivalName) dom.battingRivalName.textContent = `${currentRivalPitcher.name} 投手`;
-    if (dom.battingRivalSub) dom.battingRivalSub.textContent = currentRivalPitcher.subTitle;
-    if (dom.battingRivalRankBadge) {
-      dom.battingRivalRankBadge.textContent = currentRivalPitcher.grade;
-      dom.battingRivalRankBadge.className = `rival-rank-badge rank-${currentRivalPitcher.grade.toLowerCase().charAt(0)}`;
-    }
-    if (dom.battingRivalSpeed) dom.battingRivalSpeed.textContent = `${currentRivalPitcher.maxSpeedKmh} km/h`;
-    if (dom.battingRivalPitches) dom.battingRivalPitches.textContent = currentRivalPitcher.pitchLabels.join('・');
-    if (dom.battingRivalControl) dom.battingRivalControl.textContent = currentRivalPitcher.controlLabel;
-    dom.battingRivalCard.classList.remove('hide-rival');
-  }
+  // ルーレット抽選中は対決HUDを一時非表示
+  if (dom.battingRivalCard) dom.battingRivalCard.classList.add('hide-rival');
   if (dom.battingPitchCallout) dom.battingPitchCallout.classList.remove('show');
-
-  dom.battingStatusText.textContent = `相手投手【${currentRivalPitcher.name}】が登板！【1球入魂】タイミングを合わせて打て！`;
   if (dom.battingHomerunPopup) dom.battingHomerunPopup.classList.remove('show');
+  if (dom.battingStatusText) dom.battingStatusText.textContent = "対戦相手を抽選中...";
 
   if (bAnimId) cancelAnimationFrame(bAnimId);
   bAnimId = requestAnimationFrame(renderBatting);
 
-  // 安全装置（万が一のフリーズ防止用ウォッチドッグタイマー：8.5秒後に自動復帰）
-  addBattingTimer(() => {
-    if (bBattingActive) {
-      console.warn("Batting watchdog timer triggered.");
-      finishRewardBatting();
-    }
-  }, 8500);
+  // 🎰 対戦相手ルーレット（スロット抽選）演出開始！
+  startRivalRoulette(currentRivalPitcher, (decidedPitcher) => {
+    if (!bBattingActive) return;
 
-  // 1秒後にピッチャー投球開始！
-  addBattingTimer(() => {
-    if (bBattingActive) {
-      throwRewardPitch();
-    }
-  }, 1000);
+    // HUDに決定投手をセットして表示
+    updateBattingRivalCard(decidedPitcher);
+
+    dom.battingStatusText.textContent = `相手投手【${decidedPitcher.name}】が登板！【1球入魂】タイミングを合わせて打て！`;
+
+    // 安全装置（万が一のフリーズ防止用ウォッチドッグタイマー：8.5秒後に自動復帰）
+    addBattingTimer(() => {
+      if (bBattingActive) {
+        console.warn("Batting watchdog timer triggered.");
+        finishRewardBatting();
+      }
+    }, 8500);
+
+    // 1秒後にピッチャー投球開始！
+    addBattingTimer(() => {
+      if (bBattingActive) {
+        throwRewardPitch();
+      }
+    }, 1000);
+  });
 }
 
 function throwRewardPitch() {
@@ -1940,6 +2223,12 @@ function spawnBattingConfetti() {
 
 function finishRewardBatting() {
   clearBattingTimers();
+  clearRouletteAnimation();
+  if (dom.battingRouletteModal) dom.battingRouletteModal.classList.add('hide');
+  if (dom.rouletteDecidedCard) {
+    dom.rouletteDecidedCard.classList.remove('show');
+    dom.rouletteDecidedCard.classList.add('hide');
+  }
   bBattingActive = false;
   bPitchTrail = [];
   if (bAnimId) {
