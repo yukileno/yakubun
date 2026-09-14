@@ -451,6 +451,14 @@ function checkTitleSavedData() {
 // 画面切り替え＆HUD更新
 // ==========================================================================
 function showScreen(screenName) {
+  if (screenName !== 'batting' && typeof bBattingActive !== 'undefined' && bBattingActive) {
+    bBattingActive = false;
+    if (typeof clearBattingTimers === 'function') clearBattingTimers();
+    if (bAnimId) {
+      cancelAnimationFrame(bAnimId);
+      bAnimId = null;
+    }
+  }
   state.screen = screenName;
   Object.keys(dom.screens).forEach(key => {
     if (key === screenName) {
@@ -1194,8 +1202,25 @@ let bW = 0, bH = 0;
 let bAnimId = null;
 let bCameraMode = 'BATTER';
 let bBattingActive = false;
-let bPitchState = 'IDLE'; // 'IDLE', 'WINDUP', 'FLYING', 'RESULT'
+let bPitchState = 'IDLE'; // 'IDLE', 'READY', 'WINDUP', 'FLYING', 'RESULT'
 let bStateStartTime = 0;
+let bTimers = [];
+
+function addBattingTimer(fn, ms) {
+  const tid = setTimeout(() => {
+    bTimers = bTimers.filter(id => id !== tid);
+    fn();
+  }, ms);
+  bTimers.push(tid);
+  return tid;
+}
+
+function clearBattingTimers() {
+  for (const tid of bTimers) {
+    clearTimeout(tid);
+  }
+  bTimers = [];
+}
 
 const bStrikeZone = {
   get x() { return bW * 0.5; },
@@ -1219,6 +1244,7 @@ const bBall = {
   startTime: 0,
   targetX: 0, targetY: 0,
   hit: false,
+  swung: false,
   hitResult: null
 };
 
@@ -1244,8 +1270,10 @@ let bConfetti = [];
 function resizeBattingCanvas() {
   if (!dom.battingCanvas) return;
   const rect = dom.battingCanvas.getBoundingClientRect();
-  bW = dom.battingCanvas.width = rect.width;
-  bH = dom.battingCanvas.height = rect.height;
+  const w = rect.width || window.innerWidth || 800;
+  const h = rect.height || window.innerHeight || 600;
+  bW = dom.battingCanvas.width = Math.max(320, Math.floor(w));
+  bH = dom.battingCanvas.height = Math.max(240, Math.floor(h));
   bBatCursor.x = bStrikeZone.x;
   bBatCursor.y = bStrikeZone.y;
 }
@@ -1275,6 +1303,7 @@ function getBattingPitcherPos() {
 }
 
 function startRewardBatting() {
+  clearBattingTimers();
   state.screen = 'batting';
   showScreen('batting');
   sounds.playFever();
@@ -1301,21 +1330,33 @@ function startRewardBatting() {
   bBatCursor.x = bStrikeZone.x;
   bBatCursor.y = bStrikeZone.y;
   bBatCursor.isSwinging = false;
+  bBatCursor.swingProgress = 0;
 
   bParticles = [];
   bConfetti = [];
+  bPitchState = 'READY';
   bBall.active = false;
   bBall.hit = false;
+  bBall.swung = false;
+  bBall.hitResult = null;
   bTrackingBall.active = false;
 
   dom.battingStatusText.textContent = "絶好球が来るぞ！【1球入魂】タイミングを合わせて打て！";
-  dom.battingHomerunPopup.classList.remove('show');
+  if (dom.battingHomerunPopup) dom.battingHomerunPopup.classList.remove('show');
 
   if (bAnimId) cancelAnimationFrame(bAnimId);
   bAnimId = requestAnimationFrame(renderBatting);
 
+  // 安全装置（万が一のフリーズ防止用ウォッチドッグタイマー：8.5秒後に自動復帰）
+  addBattingTimer(() => {
+    if (bBattingActive) {
+      console.warn("Batting watchdog timer triggered.");
+      finishRewardBatting();
+    }
+  }, 8500);
+
   // 1秒後にピッチャー投球開始！
-  setTimeout(() => {
+  addBattingTimer(() => {
     if (bBattingActive) {
       throwRewardPitch();
     }
@@ -1323,23 +1364,27 @@ function startRewardBatting() {
 }
 
 function throwRewardPitch() {
+  if (!bBattingActive) return;
   bPitchState = 'WINDUP';
   bStateStartTime = performance.now();
 
   bBall.active = false;
   bBall.hit = false;
+  bBall.swung = false;
   bBall.hitResult = null;
   bBatCursor.isSwinging = false;
 
-  setTimeout(() => {
+  addBattingTimer(() => {
     if (!bBattingActive) return;
     releaseRewardPitch();
   }, 500);
 }
 
 function releaseRewardPitch() {
+  if (!bBattingActive) return;
   bBall.active = true;
   bBall.hit = false;
+  bBall.swung = false;
   bBall.hitResult = null;
   bBall.startTime = performance.now();
   bBall.speedKmh = 145 + Math.floor(Math.random() * 5); // 145〜150km/h
@@ -1368,7 +1413,7 @@ function executeBattingSwing() {
   }
 
   const now = performance.now();
-  const elapsed = now - bBall.startTime;
+  const elapsed = Math.max(0, now - bBall.startTime);
   const timingDelta = elapsed - bBall.durationMs;
 
   const dist = Math.hypot(bBatCursor.x - bBall.x, bBatCursor.y - bBall.y);
@@ -1383,13 +1428,20 @@ function executeBattingSwing() {
   const curPower = calcPower(state.totalHomeruns);
   const powerBonus = Math.floor((curPower - 40) * 0.45);
 
-  if (absTiming <= 45 && dist <= coreR) {
+  // 早すぎるスイング：ボールは消さずに飛び続けさせ、振り直し可能にする
+  if (timingDelta < -320) {
+    bBall.swung = true;
+    dom.battingStatusText.textContent = "💨 ちょっと早すぎた！ボールをよく見て打とう！";
+    return;
+  }
+
+  if (absTiming <= 55 && dist <= coreR) {
     result = 'PERFECT_HOMERUN';
     baseFlight = Math.floor(142 + Math.random() * 15);
-  } else if (absTiming <= 85 && dist <= cursorR * 0.7) {
+  } else if (absTiming <= 95 && dist <= cursorR * 0.75) {
     result = 'HOMERUN';
     baseFlight = Math.floor(125 + Math.random() * 14);
-  } else if (absTiming <= 130 && dist <= cursorR * 1.1) {
+  } else if (absTiming <= 145 && dist <= cursorR * 1.15) {
     result = 'HIT';
     baseFlight = Math.floor(75 + Math.random() * 30);
   } else {
@@ -1398,17 +1450,16 @@ function executeBattingSwing() {
 
   const flight = (result === 'SWING_AND_MISS') ? 0 : (baseFlight + powerBonus);
 
-  bBall.hit = true;
+  bBall.swung = true;
   bBall.hitResult = result;
 
-  // 閃光フラッシュ
-  const flash = dom.battingImpactFlash;
-  if (flash) {
-    flash.classList.add('flash');
-    setTimeout(() => flash.classList.remove('flash'), 50);
-  }
-
   if (result === 'PERFECT_HOMERUN' || result === 'HOMERUN') {
+    bBall.hit = true;
+    const flash = dom.battingImpactFlash;
+    if (flash) {
+      flash.classList.add('flash');
+      addBattingTimer(() => flash.classList.remove('flash'), 50);
+    }
     state.totalHomeruns++;
     state.totalHits++;
     state.maxDistance = Math.max(state.maxDistance || 0, flight);
@@ -1419,6 +1470,12 @@ function executeBattingSwing() {
     sounds.playHomerun();
     startBattingBroadcastTracking(flight, true, result === 'PERFECT_HOMERUN', timingDelta);
   } else if (result === 'HIT') {
+    bBall.hit = true;
+    const flash = dom.battingImpactFlash;
+    if (flash) {
+      flash.classList.add('flash');
+      addBattingTimer(() => flash.classList.remove('flash'), 50);
+    }
     state.totalHits++;
     state.maxDistance = Math.max(state.maxDistance || 0, flight);
     state.totalDistance = (state.totalDistance || 0) + flight;
@@ -1428,18 +1485,15 @@ function executeBattingSwing() {
     sounds.playHit();
     startBattingBroadcastTracking(flight, false, false, timingDelta);
   } else {
-    // 空振り
+    // 空振り：ボールは消さずにキャッチャーミットまで飛ばす！
     dom.battingStatusText.textContent = "💨 空振り！どんまい！次の10問でリベンジだ！";
-    setTimeout(() => {
-      finishRewardBatting();
-    }, 1800);
   }
 }
 
 function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
   bPitchState = 'RESULT';
 
-  setTimeout(() => {
+  addBattingTimer(() => {
     if (!bBattingActive) return;
     setBattingCameraMode('BROADCAST');
 
@@ -1479,7 +1533,7 @@ function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
     bTrackingBall.apexY = isHr ? (bH * 0.08) : (bH * 0.45);
 
     const totalWait = bTrackingBall.durationMs + (isHr ? 2400 : 1400);
-    setTimeout(() => {
+    addBattingTimer(() => {
       finishRewardBatting();
     }, totalWait);
   }, 120);
@@ -1493,7 +1547,7 @@ function onBattingHomerunLanded() {
   const container = document.getElementById('app-container');
   if (container) {
     container.classList.add('shake');
-    setTimeout(() => container.classList.remove('shake'), 450);
+    addBattingTimer(() => container.classList.remove('shake'), 450);
   }
 
   if (dom.battingTickerText) {
@@ -1512,7 +1566,7 @@ function onBattingHomerunLanded() {
   }
   if (dom.battingHomerunPopup) {
     dom.battingHomerunPopup.classList.add('show');
-    setTimeout(() => dom.battingHomerunPopup.classList.remove('show'), 2600);
+    addBattingTimer(() => dom.battingHomerunPopup.classList.remove('show'), 2600);
   }
 }
 
@@ -1552,6 +1606,7 @@ function spawnBattingConfetti() {
 }
 
 function finishRewardBatting() {
+  clearBattingTimers();
   bBattingActive = false;
   if (bAnimId) {
     cancelAnimationFrame(bAnimId);
@@ -1566,18 +1621,26 @@ function finishRewardBatting() {
 
 function renderBatting(now) {
   if (!bBattingActive || !bCtx) return;
-  bCtx.clearRect(0, 0, bW, bH);
 
-  if (bCameraMode === 'BATTER') {
-    drawBattingStrikeZone();
-    drawBattingPitcherMotion(now);
-    updateAndDrawBattingBall(now);
-    drawBattingCursor();
-    drawBattingSwingEffect();
-  } else {
-    updateAndDrawBattingTrackingBall(now);
-    updateAndDrawBattingParticles();
-    updateAndDrawBattingConfetti();
+  try {
+    if (bW <= 10 || bH <= 10) {
+      resizeBattingCanvas();
+    }
+    bCtx.clearRect(0, 0, bW, bH);
+
+    if (bCameraMode === 'BATTER') {
+      drawBattingStrikeZone();
+      drawBattingPitcherMotion(now);
+      updateAndDrawBattingBall(now);
+      drawBattingCursor();
+      drawBattingSwingEffect();
+    } else {
+      updateAndDrawBattingTrackingBall(now);
+      updateAndDrawBattingParticles();
+      updateAndDrawBattingConfetti();
+    }
+  } catch (err) {
+    console.error('Batting render error:', err);
   }
 
   bAnimId = requestAnimationFrame(renderBatting);
@@ -1622,7 +1685,7 @@ function drawBattingStrikeZone() {
 
 function drawBattingPitcherMotion(now) {
   if (bPitchState !== 'WINDUP') return;
-  const elapsed = now - bStateStartTime;
+  const elapsed = Math.max(0, now - bStateStartTime);
   const progress = Math.min(1, elapsed / 500);
 
   const pPos = getBattingPitcherPos();
@@ -1644,24 +1707,29 @@ function drawBattingPitcherMotion(now) {
 function updateAndDrawBattingBall(now) {
   if (!bBall.active || bBall.hit) return;
 
-  const elapsed = now - bBall.startTime;
-  const progress = elapsed / bBall.durationMs;
+  const elapsed = Math.max(0, now - bBall.startTime);
+  const progress = elapsed / Math.max(1, bBall.durationMs);
 
   if (progress >= 1.25) {
     bBall.active = false;
     sounds.playCatch();
-    dom.battingStatusText.textContent = "👀 見送り！次は振ってみよう！";
-    setTimeout(() => {
+    if (bBall.swung) {
+      dom.battingStatusText.textContent = "💨 空振り！どんまい！次の10問でリベンジだ！";
+    } else {
+      dom.battingStatusText.textContent = "👀 見送り！次は振ってみよう！";
+    }
+    addBattingTimer(() => {
       finishRewardBatting();
     }, 1600);
     return;
   }
 
   const pPos = getBattingPitcherPos();
-  bBall.x = pPos.x + (bBall.targetX - pPos.x) * progress;
-  bBall.y = pPos.y + (bBall.targetY - pPos.y) * progress;
+  const safeProgress = Math.max(0, Math.min(1.25, progress));
+  bBall.x = pPos.x + (bBall.targetX - pPos.x) * safeProgress;
+  bBall.y = pPos.y + (bBall.targetY - pPos.y) * safeProgress;
 
-  const r = 4 + Math.pow(progress, 2.2) * 26;
+  const r = Math.max(4, 4 + Math.pow(safeProgress, 2.2) * 26);
 
   bCtx.save();
   bCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -1669,19 +1737,21 @@ function updateAndDrawBattingBall(now) {
   bCtx.ellipse(bBall.x, bStrikeZone.y + bStrikeZone.h / 2 + 10, r * 1.2, r * 0.4, 0, 0, Math.PI * 2);
   bCtx.fill();
 
-  const grad = bCtx.createRadialGradient(bBall.x - r * 0.3, bBall.y - r * 0.3, r * 0.1, bBall.x, bBall.y, r);
+  const rInner = Math.max(0.1, r * 0.1);
+  const rOuter = Math.max(1, r);
+  const grad = bCtx.createRadialGradient(bBall.x - r * 0.3, bBall.y - r * 0.3, rInner, bBall.x, bBall.y, rOuter);
   grad.addColorStop(0, '#ffffff');
   grad.addColorStop(0.75, '#f1f5f9');
   grad.addColorStop(1, '#94a3b8');
 
   bCtx.fillStyle = grad;
   bCtx.shadowColor = 'rgba(255, 255, 255, 0.6)';
-  bCtx.shadowBlur = progress > 0.8 ? 14 : 4;
+  bCtx.shadowBlur = safeProgress > 0.8 ? 14 : 4;
   bCtx.beginPath();
   bCtx.arc(bBall.x, bBall.y, r, 0, Math.PI * 2);
   bCtx.fill();
 
-  if (progress > 0.4) {
+  if (safeProgress > 0.4) {
     bCtx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
     bCtx.lineWidth = Math.max(1, r * 0.1);
     bCtx.beginPath();
@@ -2068,6 +2138,16 @@ function initEvents() {
     dom.battingCanvas.addEventListener('touchmove', (e) => {
       if (e.touches.length > 0) {
         setBattingCursorPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    dom.battingCanvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 0) {
+        setBattingCursorPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      if (state.screen === 'batting' && bCameraMode === 'BATTER') {
+        executeBattingSwing();
       }
       e.preventDefault();
     }, { passive: false });
