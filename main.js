@@ -193,6 +193,15 @@ const dom = {
   battingHomerunPopup: document.getElementById('batting-homerun-popup'),
   battingHrDistText: document.getElementById('batting-hr-dist-text'),
   btnBattingSwingTouch: document.getElementById('btn-batting-swing-touch'),
+  battingRivalCard: document.getElementById('batting-rival-card'),
+  battingRivalRankBadge: document.getElementById('batting-rival-rank-badge'),
+  battingRivalName: document.getElementById('batting-rival-name'),
+  battingRivalSub: document.getElementById('batting-rival-sub'),
+  battingRivalSpeed: document.getElementById('batting-rival-speed'),
+  battingRivalPitches: document.getElementById('batting-rival-pitches'),
+  battingRivalControl: document.getElementById('batting-rival-control'),
+  battingPitchCallout: document.getElementById('batting-pitch-callout'),
+  battingPitchCalloutType: document.getElementById('batting-pitch-callout-type'),
 
   // ランキング画面
   btnRankingClose: document.getElementById('btn-ranking-close'),
@@ -523,6 +532,7 @@ function startTraining(playerName, isFresh = false) {
 
   // セッショントークン（非同期でバックグラウンド取得）
   api.getSessionToken().then(t => state.sessionToken = t).catch(() => {});
+  prefetchRankings();
 
   // 1. ローカルデータから即座にロード（0ミリ秒で高速起動！）
   const localData = isFresh ? null : loadLocalPlayerData(cleanName);
@@ -1122,6 +1132,18 @@ async function openRankingModal() {
   }
 }
 
+async function prefetchRankings() {
+  if (!api.isOnline()) return;
+  try {
+    const list = await api.getRanking(state.playerName);
+    if (Array.isArray(list) && list.length > 0) {
+      cachedRankingList = list;
+    }
+  } catch (err) {
+    console.warn("Background ranking prefetch:", err);
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/[&<>"']/g, function(m) {
@@ -1245,7 +1267,12 @@ const bBall = {
   targetX: 0, targetY: 0,
   hit: false,
   swung: false,
-  hitResult: null
+  hitResult: null,
+  pitchType: 'STRAIGHT', // 'STRAIGHT', 'FIREBALL', 'CURVE', 'SLIDER', 'FORK'
+  pitchLabel: '直球',
+  cornerName: '中央',
+  breakDir: 1,
+  isMeatball: false
 };
 
 const bTrackingBall = {
@@ -1266,6 +1293,205 @@ const bTrackingBall = {
 
 let bParticles = [];
 let bConfetti = [];
+let bPitchTrail = [];
+
+// デフォルトのライバル投手データプール（オフライン時・初期用）
+const DEFAULT_RIVAL_PITCHERS = [
+  { name: "あたらし ひろと", score: 83, homeruns: 74, maxDistance: 152, title: "豪速球の守護神" },
+  { name: "わたなべ", score: 92, homeruns: 62, maxDistance: 154, title: "怪物スラッガー投手" },
+  { name: "二宮悠太", score: 80, homeruns: 40, maxDistance: 140, title: "本格派エース" },
+  { name: "そうた", score: 55, homeruns: 33, maxDistance: 130, title: "技巧派ドクターK" },
+  { name: "あおい", score: 52, homeruns: 28, maxDistance: 135, title: "急降下フォークの使い手" },
+  { name: "森くん", score: 31, homeruns: 15, maxDistance: 144, title: "魔球カーブマスター" },
+  { name: "柴田", score: 30, homeruns: 28, maxDistance: 130, title: "快速サイドスロー" },
+  { name: "翔真", score: 20, homeruns: 8, maxDistance: 110, title: "期待の本格派右腕" },
+  { name: "こゆり", score: 9, homeruns: 6, maxDistance: 95, title: "ルーキー投手" }
+];
+
+let currentRivalPitcher = null;
+
+function buildPitcherProfile(raw, rankPos = 1) {
+  const name = (raw && raw.name) ? raw.name : "ライバル投手";
+  const solved = Number(raw ? raw.score : 0) || 0;
+  const hr = Number(raw ? raw.homeruns : 0) || 0;
+  const maxDist = Number(raw ? raw.maxDistance : 0) || 0;
+
+  // 総合戦闘力ポイント（問数 + 本塁打重み + 飛距離）
+  const powerPts = solved * 1.0 + hr * 2.2 + (maxDist > 100 ? (maxDist - 100) * 0.7 : 0);
+
+  let grade = 'D';
+  let maxSpeedKmh = 120;
+  let pitches = ['STRAIGHT'];
+  let pitchLabels = ['直球'];
+  let control = 'CENTER';
+  let controlLabel = '中央集球';
+  let title = (raw && raw.title) ? raw.title : '期待の右腕';
+
+  if (powerPts >= 160 || hr >= 50 || solved >= 75) {
+    grade = 'S';
+    maxSpeedKmh = 154 + Math.floor(Math.random() * 8); // 154〜161km/h
+    pitches = ['FIREBALL', 'SLIDER', 'FORK', 'STRAIGHT'];
+    pitchLabels = ['火の玉', '鋭角スライダー', '消えるフォーク'];
+    control = 'PINPOINT';
+    controlLabel = '4隅ピンポイント';
+    title = '全国屈指の絶対的守護神';
+  } else if (powerPts >= 90 || hr >= 30 || solved >= 45) {
+    grade = 'A';
+    maxSpeedKmh = 146 + Math.floor(Math.random() * 6); // 146〜151km/h
+    pitches = ['STRAIGHT', 'SLIDER', 'FORK'];
+    pitchLabels = ['剛速球', '鋭角スライダー', '落差フォーク'];
+    control = 'CORNER';
+    controlLabel = 'きわどいコーナー攻め';
+    title = '強豪校の看板エース';
+  } else if (powerPts >= 45 || hr >= 18 || solved >= 25) {
+    grade = 'B';
+    maxSpeedKmh = 138 + Math.floor(Math.random() * 6); // 138〜143km/h
+    pitches = ['STRAIGHT', 'SLIDER', 'CURVE'];
+    pitchLabels = ['直球', 'スライダー', 'ドロップカーブ'];
+    control = 'CORNER';
+    controlLabel = '外角コーナー狙い';
+    title = '変幻自在の技巧派右腕';
+  } else if (powerPts >= 20 || hr >= 8 || solved >= 12) {
+    grade = 'C';
+    maxSpeedKmh = 128 + Math.floor(Math.random() * 8); // 128〜135km/h
+    pitches = ['STRAIGHT', 'CURVE'];
+    pitchLabels = ['直球', 'スローカーブ'];
+    control = 'CENTER';
+    controlLabel = 'ストライク先行';
+    title = '緩急を操る好投手';
+  } else {
+    grade = 'D';
+    maxSpeedKmh = 115 + Math.floor(Math.random() * 10); // 115〜124km/h
+    pitches = ['STRAIGHT'];
+    pitchLabels = ['打ちやすい直球'];
+    control = 'CENTER';
+    controlLabel = 'ど真ん中勝負';
+    title = '期待のルーキー投手';
+  }
+
+  const subTitle = rankPos > 0
+    ? `全国${rankPos}位 / ${hr > 0 ? hr + '本塁打' : solved + '問クリア'}`
+    : title;
+
+  return {
+    name,
+    solved,
+    homeruns: hr,
+    maxDistance: maxDist,
+    grade,
+    maxSpeedKmh,
+    pitches,
+    pitchLabels,
+    control,
+    controlLabel,
+    subTitle,
+    rankPos
+  };
+}
+
+function selectRivalPitcher() {
+  // キャッシュされたランキングから、現在のプレイヤー以外を抽出
+  let pool = [...cachedRankingList].filter(item => {
+    return item && item.name && item.name !== state.playerName && item.name !== 'テスト' && item.name !== 'てすと';
+  });
+
+  if (pool.length === 0) {
+    pool = [...DEFAULT_RIVAL_PITCHERS];
+  }
+
+  // 実力順にソート（本塁打数と問数から算出）
+  pool.sort((a, b) => {
+    const aPts = (Number(a.score) || 0) + (Number(a.homeruns) || 0) * 2;
+    const bPts = (Number(b.score) || 0) + (Number(b.homeruns) || 0) * 2;
+    return bPts - aPts;
+  });
+
+  // 現在の問数（ラウンド）に応じた段階的マッチング
+  // 10問目: 初級〜中位のライバル
+  // 20問目: 中位〜上位の実力派
+  // 30問目以降: Sランク最強ランカー！（全国トップ3）
+  const round = Math.max(1, Math.floor(state.totalSolved / 10));
+  let candidate = null;
+  let rankPos = 1;
+
+  if (round === 1) {
+    const startIdx = Math.floor(pool.length * 0.35);
+    const slice = pool.slice(startIdx);
+    const chosen = slice.length > 0 ? slice[Math.floor(Math.random() * slice.length)] : pool[pool.length - 1];
+    rankPos = pool.indexOf(chosen) + 1;
+    candidate = chosen;
+  } else if (round === 2) {
+    const midIdx = Math.floor(pool.length * 0.15);
+    const endIdx = Math.max(midIdx + 1, Math.floor(pool.length * 0.55));
+    const slice = pool.slice(midIdx, endIdx);
+    const chosen = slice.length > 0 ? slice[Math.floor(Math.random() * slice.length)] : pool[0];
+    rankPos = pool.indexOf(chosen) + 1;
+    candidate = chosen;
+  } else {
+    // ボス対決：全国トップ3位以内から選出！
+    const topSlice = pool.slice(0, Math.min(3, pool.length));
+    const chosen = topSlice[Math.floor(Math.random() * topSlice.length)];
+    rankPos = pool.indexOf(chosen) + 1;
+    candidate = chosen;
+  }
+
+  return buildPitcherProfile(candidate, rankPos);
+}
+
+function calcPitchTrajectory(pitchType, safeProgress, breakDir = 1) {
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (pitchType === 'CURVE') {
+    // ドロップカーブ: 上にふわりと浮き上がり、手前で大きく下へ落ちる緩急
+    const arc = Math.sin(safeProgress * Math.PI);
+    offsetY = -arc * 44;
+    offsetX = -arc * breakDir * 26;
+  } else if (pitchType === 'SLIDER') {
+    // 鋭角スライダー: 半分までは直球軌道、後半0.42から急激に外/内にキレる
+    if (safeProgress > 0.42) {
+      const breakFactor = Math.pow((safeProgress - 0.42) / 0.58, 1.8);
+      offsetX = breakDir * breakFactor * 42;
+      offsetY = breakFactor * 8;
+    }
+  } else if (pitchType === 'FORK') {
+    // 落差フォーク: 直球の軌道から手前0.48以降で急激に真下へストンと落ちる
+    if (safeProgress > 0.48) {
+      const dropFactor = Math.pow((safeProgress - 0.48) / 0.52, 2.0);
+      offsetY = dropFactor * 46;
+    }
+  } else if (pitchType === 'FIREBALL') {
+    // 火の玉ストレート: 手元でホップする（浮き上がる）ライジング軌道
+    if (safeProgress > 0.55) {
+      const riseFactor = Math.pow((safeProgress - 0.55) / 0.45, 1.6);
+      offsetY = -riseFactor * 16;
+    }
+  }
+
+  return { offsetX, offsetY };
+}
+
+function updateAndDrawPitchTrail() {
+  for (let i = bPitchTrail.length - 1; i >= 0; i--) {
+    const p = bPitchTrail[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.alpha -= p.decay;
+    if (p.alpha <= 0) {
+      bPitchTrail.splice(i, 1);
+      continue;
+    }
+    bCtx.save();
+    bCtx.globalAlpha = Math.max(0, p.alpha);
+    bCtx.fillStyle = p.color;
+    bCtx.shadowColor = p.color;
+    bCtx.shadowBlur = 8;
+    bCtx.beginPath();
+    bCtx.arc(p.x, p.y, p.size * p.alpha, 0, Math.PI * 2);
+    bCtx.fill();
+    bCtx.restore();
+  }
+}
 
 function resizeBattingCanvas() {
   if (!dom.battingCanvas) return;
@@ -1290,9 +1516,12 @@ function setBattingCameraMode(mode) {
   if (mode === 'BROADCAST') {
     dom.battingLayerBatter.classList.remove('active');
     dom.battingLayerBroadcast.classList.add('active');
+    if (dom.battingRivalCard) dom.battingRivalCard.classList.add('hide-rival');
+    if (dom.battingPitchCallout) dom.battingPitchCallout.classList.remove('show');
   } else {
     dom.battingLayerBroadcast.classList.remove('active');
     dom.battingLayerBatter.classList.add('active');
+    if (dom.battingRivalCard) dom.battingRivalCard.classList.remove('hide-rival');
     if (dom.battingBroadcastTicker) dom.battingBroadcastTicker.classList.remove('show');
     if (dom.battingMeterHud) dom.battingMeterHud.classList.remove('show');
   }
@@ -1334,6 +1563,7 @@ function startRewardBatting() {
 
   bParticles = [];
   bConfetti = [];
+  bPitchTrail = [];
   bPitchState = 'READY';
   bBall.active = false;
   bBall.hit = false;
@@ -1341,7 +1571,24 @@ function startRewardBatting() {
   bBall.hitResult = null;
   bTrackingBall.active = false;
 
-  dom.battingStatusText.textContent = "絶好球が来るぞ！【1球入魂】タイミングを合わせて打て！";
+  // 相手（ライバル）投手の選出＆HUD反映
+  currentRivalPitcher = selectRivalPitcher();
+
+  if (dom.battingRivalCard) {
+    if (dom.battingRivalName) dom.battingRivalName.textContent = `${currentRivalPitcher.name} 投手`;
+    if (dom.battingRivalSub) dom.battingRivalSub.textContent = currentRivalPitcher.subTitle;
+    if (dom.battingRivalRankBadge) {
+      dom.battingRivalRankBadge.textContent = currentRivalPitcher.grade;
+      dom.battingRivalRankBadge.className = `rival-rank-badge rank-${currentRivalPitcher.grade.toLowerCase().charAt(0)}`;
+    }
+    if (dom.battingRivalSpeed) dom.battingRivalSpeed.textContent = `${currentRivalPitcher.maxSpeedKmh} km/h`;
+    if (dom.battingRivalPitches) dom.battingRivalPitches.textContent = currentRivalPitcher.pitchLabels.join('・');
+    if (dom.battingRivalControl) dom.battingRivalControl.textContent = currentRivalPitcher.controlLabel;
+    dom.battingRivalCard.classList.remove('hide-rival');
+  }
+  if (dom.battingPitchCallout) dom.battingPitchCallout.classList.remove('show');
+
+  dom.battingStatusText.textContent = `相手投手【${currentRivalPitcher.name}】が登板！【1球入魂】タイミングを合わせて打て！`;
   if (dom.battingHomerunPopup) dom.battingHomerunPopup.classList.remove('show');
 
   if (bAnimId) cancelAnimationFrame(bAnimId);
@@ -1387,19 +1634,103 @@ function releaseRewardPitch() {
   bBall.swung = false;
   bBall.hitResult = null;
   bBall.startTime = performance.now();
-  bBall.speedKmh = 145 + Math.floor(Math.random() * 5); // 145〜150km/h
+
+  const rival = currentRivalPitcher || buildPitcherProfile(DEFAULT_RIVAL_PITCHERS[0], 1);
+
+  // 球種の選択
+  const availablePitches = (rival && rival.pitches && rival.pitches.length > 0) ? rival.pitches : ['STRAIGHT'];
+  const pitchType = availablePitches[Math.floor(Math.random() * availablePitches.length)];
+
+  // 球速と球種名の算出
+  let speed = rival.maxSpeedKmh || 140;
+  let pitchLabel = '直球';
+
+  if (pitchType === 'FIREBALL') {
+    speed += Math.floor(1 + Math.random() * 3); // 158〜164km/h
+    pitchLabel = '⚡ 火の玉ストレート';
+  } else if (pitchType === 'SLIDER') {
+    speed -= Math.floor(8 + Math.random() * 5); // -8〜12km/h
+    pitchLabel = '🌀 鋭角スライダー';
+  } else if (pitchType === 'FORK') {
+    speed -= Math.floor(12 + Math.random() * 5); // -12〜16km/h
+    pitchLabel = '📉 落差フォーク';
+  } else if (pitchType === 'CURVE') {
+    speed -= Math.floor(25 + Math.random() * 8); // -25〜32km/h（大きな緩急！）
+    pitchLabel = '🌈 ドロップカーブ';
+  } else {
+    speed -= Math.floor(Math.random() * 4);
+    pitchLabel = speed >= 150 ? '🔥 剛速球' : '⚾ ストレート';
+  }
+
+  bBall.speedKmh = Math.max(105, speed);
   bBall.durationMs = Math.floor((150 / bBall.speedKmh) * 950);
+  bBall.pitchType = pitchType;
+  bBall.pitchLabel = pitchLabel;
+  bBall.breakDir = Math.random() > 0.5 ? 1 : -1;
 
   const pPos = getBattingPitcherPos();
   bBall.x = pPos.x;
   bBall.y = pPos.y;
 
-  // 必ずストライクゾーン中央付近の打ちやすい絶好球！
-  bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.4);
-  bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.4);
+  // コントロールとコース（隅を突く技術）
+  // 爽快感のため22%の確率で「ド真ん中甘い絶好球（失投）」が発生！
+  const isMeatball = Math.random() < 0.22;
+  let cornerName = '真ん中';
 
+  if (isMeatball) {
+    bBall.isMeatball = true;
+    bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.15);
+    bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.15);
+    cornerName = 'ド真ん中絶好球';
+  } else if (rival.control === 'PINPOINT' || rival.control === 'CORNER') {
+    // 4隅を突く！
+    const cornerIndex = Math.floor(Math.random() * 4);
+    const padX = bStrikeZone.w * 0.36;
+    const padY = bStrikeZone.h * 0.35;
+    if (cornerIndex === 0) {
+      bBall.targetX = bStrikeZone.x + padX;
+      bBall.targetY = bStrikeZone.y + padY;
+      cornerName = '外角低め';
+    } else if (cornerIndex === 1) {
+      bBall.targetX = bStrikeZone.x - padX;
+      bBall.targetY = bStrikeZone.y - padY;
+      cornerName = '内角高め';
+    } else if (cornerIndex === 2) {
+      bBall.targetX = bStrikeZone.x - padX;
+      bBall.targetY = bStrikeZone.y + padY;
+      cornerName = '内角低め';
+    } else {
+      bBall.targetX = bStrikeZone.x + padX;
+      bBall.targetY = bStrikeZone.y - padY;
+      cornerName = '外角高め';
+    }
+    bBall.isMeatball = false;
+  } else {
+    // 初心者向け：ストライクゾーン中央付近
+    bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.28);
+    bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.28);
+    cornerName = 'ストライク';
+    bBall.isMeatball = false;
+  }
+
+  bBall.cornerName = cornerName;
   bPitchState = 'FLYING';
   sounds.playRelease();
+
+  // 球種テロップポップアップ
+  const calloutText = isMeatball
+    ? `🔥 失投だ！${cornerName}！`
+    : `${pitchLabel} ${bBall.speedKmh}km/h (${cornerName})！`;
+
+  if (dom.battingPitchCallout && dom.battingPitchCalloutType) {
+    dom.battingPitchCalloutType.textContent = calloutText;
+    dom.battingPitchCallout.classList.add('show');
+    addBattingTimer(() => {
+      if (dom.battingPitchCallout) dom.battingPitchCallout.classList.remove('show');
+    }, 1200);
+  }
+
+  dom.battingStatusText.textContent = `相手投手【${rival.name}】が投じた！${calloutText}`;
 }
 
 function executeBattingSwing() {
@@ -1502,13 +1833,14 @@ function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
     const meterHud = dom.battingMeterHud;
     const meterVal = dom.battingMeterVal;
 
+    const rivalName = currentRivalPitcher ? currentRivalPitcher.name : '相手投手';
     let dir = timingDelta < -10 ? 'レフトへ' : (timingDelta > 10 ? 'ライトへ' : 'バックスクリーンへ');
     if (isPerfect) {
-      tickerText.textContent = `打った瞬間それと分かる当たり！${dir}ぐんぐん伸びるー！！`;
+      tickerText.textContent = `相手エース【${rivalName}】の勝負球を一閃！打った瞬間それと分かる当たり！${dir}ぐんぐん伸びるー！！`;
     } else if (isHr) {
-      tickerText.textContent = `高々と上がった大飛球！${dir}行ったか！？行ったかー！？`;
+      tickerText.textContent = `難敵【${rivalName}】を打ち砕いた！高々と上がった大飛球！${dir}行ったか！？行ったかー！？`;
     } else {
-      tickerText.textContent = `鋭い打球がグラウンドを抜けて${dir}クリーンヒット！！`;
+      tickerText.textContent = `強敵【${rivalName}】の球を捉えた！鋭い打球がグラウンドを抜けて${dir}クリーンヒット！！`;
     }
 
     if (ticker) ticker.classList.add('show');
@@ -1550,10 +1882,11 @@ function onBattingHomerunLanded() {
     addBattingTimer(() => container.classList.remove('shake'), 450);
   }
 
+  const rivalName = currentRivalPitcher ? currentRivalPitcher.name : '相手投手';
   if (dom.battingTickerText) {
     dom.battingTickerText.textContent = bTrackingBall.isPerfect
-      ? `スタンド最上段へ飛び込んだぁぁ！特大ホームラン ${bTrackingBall.targetDist}m！！`
-      : `スタンド中段へ飛び込んだー！ホームラン！推定 ${bTrackingBall.targetDist}m！！`;
+      ? `スタンド最上段へ飛び込んだぁぁ！【${rivalName}】から特大ホームラン ${bTrackingBall.targetDist}m！！`
+      : `スタンド中段へ飛び込んだー！【${rivalName}】からホームラン！推定 ${bTrackingBall.targetDist}m！！`;
   }
 
   spawnBattingFireworks(bTrackingBall.endX, bTrackingBall.endY);
@@ -1608,11 +1941,14 @@ function spawnBattingConfetti() {
 function finishRewardBatting() {
   clearBattingTimers();
   bBattingActive = false;
+  bPitchTrail = [];
   if (bAnimId) {
     cancelAnimationFrame(bAnimId);
     bAnimId = null;
   }
   setBattingCameraMode('BATTER');
+  if (dom.battingPitchCallout) dom.battingPitchCallout.classList.remove('show');
+  if (dom.battingRivalCard) dom.battingRivalCard.classList.remove('hide-rival');
 
   showScreen('game');
   announce(`ナイスバッティング！第 ${state.totalSolved + 1} 問へ進もう！`);
@@ -1631,6 +1967,7 @@ function renderBatting(now) {
     if (bCameraMode === 'BATTER') {
       drawBattingStrikeZone();
       drawBattingPitcherMotion(now);
+      updateAndDrawPitchTrail();
       updateAndDrawBattingBall(now);
       drawBattingCursor();
       drawBattingSwingEffect();
@@ -1690,16 +2027,19 @@ function drawBattingPitcherMotion(now) {
 
   const pPos = getBattingPitcherPos();
   bCtx.save();
-  const r = (1 - progress) * 35 + 8;
-  bCtx.strokeStyle = `rgba(255, 210, 63, ${0.4 + progress * 0.6})`;
-  bCtx.lineWidth = 3;
+  const r = (1 - progress) * 38 + 8;
+  const rival = currentRivalPitcher;
+  const isSRank = rival && rival.grade === 'S';
+  const ringColor = isSRank ? 'rgba(255, 51, 75,' : 'rgba(255, 210, 63,';
+  bCtx.strokeStyle = `${ringColor} ${0.4 + progress * 0.6})`;
+  bCtx.lineWidth = isSRank ? 4.5 : 3;
   bCtx.beginPath();
   bCtx.arc(pPos.x, pPos.y, r, 0, Math.PI * 2);
   bCtx.stroke();
 
-  bCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  bCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
   bCtx.beginPath();
-  bCtx.arc(pPos.x, pPos.y, 4, 0, Math.PI * 2);
+  bCtx.arc(pPos.x, pPos.y, 4.5, 0, Math.PI * 2);
   bCtx.fill();
   bCtx.restore();
 }
@@ -1726,12 +2066,43 @@ function updateAndDrawBattingBall(now) {
 
   const pPos = getBattingPitcherPos();
   const safeProgress = Math.max(0, Math.min(1.25, progress));
-  bBall.x = pPos.x + (bBall.targetX - pPos.x) * safeProgress;
-  bBall.y = pPos.y + (bBall.targetY - pPos.y) * safeProgress;
+
+  // 球種ごとの変化球物理軌道オフセットを反映
+  const traj = calcPitchTrajectory(bBall.pitchType, safeProgress, bBall.breakDir);
+  const baseX = pPos.x + (bBall.targetX - pPos.x) * safeProgress;
+  const baseY = pPos.y + (bBall.targetY - pPos.y) * safeProgress;
+
+  bBall.x = baseX + traj.offsetX;
+  bBall.y = baseY + traj.offsetY;
 
   const r = Math.max(4, 4 + Math.pow(safeProgress, 2.2) * 26);
 
+  // 火の玉ストレートの炎トレイル生成
+  if (bBall.pitchType === 'FIREBALL' && Math.random() < 0.75) {
+    bPitchTrail.push({
+      x: bBall.x + (Math.random() - 0.5) * r * 0.7,
+      y: bBall.y + (Math.random() - 0.5) * r * 0.7,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: (Math.random() - 0.5) * 1.5 - 1.2,
+      color: Math.random() < 0.5 ? '#ff334b' : '#ff9800',
+      size: r * 0.55,
+      alpha: 0.8,
+      decay: 0.045
+    });
+  } else if (bBall.pitchType === 'CURVE' && Math.random() < 0.6) {
+    bPitchTrail.push({
+      x: bBall.x + (Math.random() - 0.5) * r * 0.4,
+      y: bBall.y + (Math.random() - 0.5) * r * 0.4,
+      vx: 0, vy: 0,
+      color: '#00d2ff',
+      size: r * 0.45,
+      alpha: 0.6,
+      decay: 0.04
+    });
+  }
+
   bCtx.save();
+  // 地面影
   bCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   bCtx.beginPath();
   bCtx.ellipse(bBall.x, bStrikeZone.y + bStrikeZone.h / 2 + 10, r * 1.2, r * 0.4, 0, 0, Math.PI * 2);
@@ -1740,19 +2111,48 @@ function updateAndDrawBattingBall(now) {
   const rInner = Math.max(0.1, r * 0.1);
   const rOuter = Math.max(1, r);
   const grad = bCtx.createRadialGradient(bBall.x - r * 0.3, bBall.y - r * 0.3, rInner, bBall.x, bBall.y, rOuter);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.75, '#f1f5f9');
-  grad.addColorStop(1, '#94a3b8');
+
+  // 球種ごとのボールオーラ・質感描画
+  if (bBall.pitchType === 'FIREBALL') {
+    grad.addColorStop(0, '#fffbeb');
+    grad.addColorStop(0.45, '#f97316');
+    grad.addColorStop(1, '#dc2626');
+    bCtx.shadowColor = '#ef4444';
+    bCtx.shadowBlur = safeProgress > 0.6 ? 26 : 12;
+  } else if (bBall.pitchType === 'CURVE') {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.7, '#38bdf8');
+    grad.addColorStop(1, '#0284c7');
+    bCtx.shadowColor = '#00d2ff';
+    bCtx.shadowBlur = 18;
+  } else if (bBall.pitchType === 'SLIDER') {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.7, '#fef08a');
+    grad.addColorStop(1, '#eab308');
+    bCtx.shadowColor = '#facc15';
+    bCtx.shadowBlur = 16;
+  } else if (bBall.pitchType === 'FORK') {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.7, '#e9d5ff');
+    grad.addColorStop(1, '#9333ea');
+    bCtx.shadowColor = '#c084fc';
+    bCtx.shadowBlur = 16;
+  } else {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.75, '#f1f5f9');
+    grad.addColorStop(1, '#94a3b8');
+    bCtx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+    bCtx.shadowBlur = safeProgress > 0.8 ? 16 : 4;
+  }
 
   bCtx.fillStyle = grad;
-  bCtx.shadowColor = 'rgba(255, 255, 255, 0.6)';
-  bCtx.shadowBlur = safeProgress > 0.8 ? 14 : 4;
   bCtx.beginPath();
   bCtx.arc(bBall.x, bBall.y, r, 0, Math.PI * 2);
   bCtx.fill();
 
+  // ボールの縫い目
   if (safeProgress > 0.4) {
-    bCtx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+    bCtx.strokeStyle = bBall.pitchType === 'FIREBALL' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(239, 68, 68, 0.6)';
     bCtx.lineWidth = Math.max(1, r * 0.1);
     bCtx.beginPath();
     bCtx.arc(bBall.x - r * 0.2, bBall.y, r * 0.7, -0.6, 0.6);
@@ -2193,4 +2593,5 @@ window.addEventListener('DOMContentLoaded', () => {
   initEvents();
   checkTitleSavedData();
   showScreen('title');
+  prefetchRankings();
 });

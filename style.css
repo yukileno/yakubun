@@ -1938,6 +1938,160 @@ html, body {
   color: #ffffff;
 }
 
+/* 対決相手投手HUD（プロスピ風VSネームプレート） */
+.batting-rival-card {
+  position: absolute;
+  top: 52px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 22;
+  background: linear-gradient(135deg, rgba(10, 18, 36, 0.95), rgba(18, 28, 54, 0.95));
+  border: 2px solid #00d2ff;
+  border-radius: 12px;
+  padding: 6px 16px;
+  box-shadow: 0 4px 25px rgba(0, 210, 255, 0.4), 0 6px 20px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 320px;
+  max-width: 90%;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+
+.batting-rival-card.hide-rival {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-15px);
+}
+
+.rival-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 3px;
+}
+
+.rival-tag {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #ff334b;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(255, 51, 75, 0.6);
+}
+
+.rival-rank-badge {
+  font-size: 0.85rem;
+  font-weight: 900;
+  padding: 1px 10px;
+  border-radius: 8px;
+  letter-spacing: 1px;
+}
+
+.rival-rank-badge.rank-s {
+  background: linear-gradient(135deg, #ffd23f, #f59e0b);
+  color: #1a0f00;
+  box-shadow: 0 0 10px rgba(255, 210, 63, 0.8);
+}
+.rival-rank-badge.rank-a {
+  background: linear-gradient(135deg, #ff334b, #d90429);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(255, 51, 75, 0.6);
+}
+.rival-rank-badge.rank-b {
+  background: linear-gradient(135deg, #00d2ff, #0284c7);
+  color: #fff;
+}
+.rival-rank-badge.rank-c {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+}
+.rival-rank-badge.rank-d {
+  background: #64748b;
+  color: #fff;
+}
+
+.rival-info-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rival-name-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.rival-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.rival-sub {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--gold);
+}
+
+.rival-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.rival-stat-item strong {
+  color: #38bdf8;
+  font-weight: 800;
+}
+
+.rival-control-tag {
+  color: #facc15 !important;
+  background: rgba(250, 204, 21, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+}
+
+/* 投球時の球種ポップアップテロップ */
+.batting-pitch-callout {
+  position: absolute;
+  top: 130px; left: 50%;
+  transform: translateX(-50%) scale(0.6);
+  z-index: 28;
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95));
+  border: 2px solid var(--gold);
+  border-radius: 20px;
+  padding: 5px 20px;
+  box-shadow: 0 0 25px rgba(255, 51, 75, 0.7);
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  white-space: nowrap;
+}
+
+.batting-pitch-callout.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.05);
+}
+
+.pitch-type-text {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(255, 210, 63, 0.8);
+}
+
 /* 飛距離メーターHUD */
 .batting-meter-hud {
   position: absolute;
