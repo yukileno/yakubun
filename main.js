@@ -1342,23 +1342,32 @@ function buildPitcherProfile(raw, rankPos = 1) {
   let controlLabel = '中央集球';
   let title = (raw && raw.title) ? raw.title : '期待の右腕';
 
-  if (powerPts >= 160 || hr >= 50 || solved >= 75) {
+  // 全国1位（絶対的レジェンドエース）
+  if (rankPos === 1) {
     grade = 'S';
-    maxSpeedKmh = 154 + Math.floor(Math.random() * 8); // 154〜161km/h
+    maxSpeedKmh = 163 + Math.floor(Math.random() * 5); // 163〜167km/h（火の玉で最大172km/h!!）
+    pitches = ['FIREBALL', 'SLIDER', 'FORK'];
+    pitchLabels = ['火の玉ストレート', '超鋭角スライダー', '消える魔球フォーク'];
+    control = 'PINPOINT';
+    controlLabel = '針の穴を通す制球';
+    title = '全国1位・絶対的伝説の守護神';
+  } else if (rankPos <= 3 || powerPts >= 160 || hr >= 50 || solved >= 75) {
+    grade = 'S';
+    maxSpeedKmh = 158 + Math.floor(Math.random() * 5); // 158〜162km/h
     pitches = ['FIREBALL', 'SLIDER', 'FORK', 'STRAIGHT'];
     pitchLabels = ['火の玉', '鋭角スライダー', '消えるフォーク'];
     control = 'PINPOINT';
     controlLabel = '4隅ピンポイント';
-    title = '全国屈指の絶対的守護神';
-  } else if (powerPts >= 90 || hr >= 30 || solved >= 45) {
+    title = '全国トップクラスの豪腕エース';
+  } else if (powerPts >= 90 || hr >= 30 || solved >= 45 || rankPos <= 6) {
     grade = 'A';
-    maxSpeedKmh = 146 + Math.floor(Math.random() * 6); // 146〜151km/h
+    maxSpeedKmh = 148 + Math.floor(Math.random() * 6); // 148〜153km/h
     pitches = ['STRAIGHT', 'SLIDER', 'FORK'];
     pitchLabels = ['剛速球', '鋭角スライダー', '落差フォーク'];
     control = 'CORNER';
     controlLabel = 'きわどいコーナー攻め';
     title = '強豪校の看板エース';
-  } else if (powerPts >= 45 || hr >= 18 || solved >= 25) {
+  } else if (powerPts >= 45 || hr >= 18 || solved >= 25 || rankPos <= 12) {
     grade = 'B';
     maxSpeedKmh = 138 + Math.floor(Math.random() * 6); // 138〜143km/h
     pitches = ['STRAIGHT', 'SLIDER', 'CURVE'];
@@ -1368,7 +1377,7 @@ function buildPitcherProfile(raw, rankPos = 1) {
     title = '変幻自在の技巧派右腕';
   } else if (powerPts >= 20 || hr >= 8 || solved >= 12) {
     grade = 'C';
-    maxSpeedKmh = 128 + Math.floor(Math.random() * 8); // 128〜135km/h
+    maxSpeedKmh = 126 + Math.floor(Math.random() * 8); // 126〜133km/h
     pitches = ['STRAIGHT', 'CURVE'];
     pitchLabels = ['直球', 'スローカーブ'];
     control = 'CENTER';
@@ -1376,7 +1385,7 @@ function buildPitcherProfile(raw, rankPos = 1) {
     title = '緩急を操る好投手';
   } else {
     grade = 'D';
-    maxSpeedKmh = 115 + Math.floor(Math.random() * 10); // 115〜124km/h
+    maxSpeedKmh = 115 + Math.floor(Math.random() * 8); // 115〜122km/h
     pitches = ['STRAIGHT'];
     pitchLabels = ['打ちやすい直球'];
     control = 'CENTER';
@@ -1404,60 +1413,25 @@ function buildPitcherProfile(raw, rankPos = 1) {
   };
 }
 
-function selectRivalPitcher() {
-  // キャッシュされたランキングから、現在のプレイヤー以外を抽出
-  let pool = [...cachedRankingList].filter(item => {
-    return item && item.name && item.name !== state.playerName && item.name !== 'テスト' && item.name !== 'てすと';
-  });
-
-  if (pool.length === 0) {
-    pool = [...DEFAULT_RIVAL_PITCHERS];
-  }
-
-  // 実力順にソート（本塁打数と問数から算出）
-  pool.sort((a, b) => {
-    const aPts = (Number(a.score) || 0) + (Number(a.homeruns) || 0) * 2;
-    const bPts = (Number(b.score) || 0) + (Number(b.homeruns) || 0) * 2;
-    return bPts - aPts;
-  });
-
-  // 現在の問数（ラウンド）に応じた段階的マッチング
-  // 10問目: 初級〜中位のライバル
-  // 20問目: 中位〜上位の実力派
-  // 30問目以降: Sランク最強ランカー！（全国トップ3）
-  const round = Math.max(1, Math.floor(state.totalSolved / 10));
-  let candidate = null;
-  let rankPos = 1;
-
-  if (round === 1) {
-    const startIdx = Math.floor(pool.length * 0.35);
-    const slice = pool.slice(startIdx);
-    const chosen = slice.length > 0 ? slice[Math.floor(Math.random() * slice.length)] : pool[pool.length - 1];
-    rankPos = pool.indexOf(chosen) + 1;
-    candidate = chosen;
-  } else if (round === 2) {
-    const midIdx = Math.floor(pool.length * 0.15);
-    const endIdx = Math.max(midIdx + 1, Math.floor(pool.length * 0.55));
-    const slice = pool.slice(midIdx, endIdx);
-    const chosen = slice.length > 0 ? slice[Math.floor(Math.random() * slice.length)] : pool[0];
-    rankPos = pool.indexOf(chosen) + 1;
-    candidate = chosen;
-  } else {
-    // ボス対決：全国トップ3位以内から選出！
-    const topSlice = pool.slice(0, Math.min(3, pool.length));
-    const chosen = topSlice[Math.floor(Math.random() * topSlice.length)];
-    rankPos = pool.indexOf(chosen) + 1;
-    candidate = chosen;
-  }
-
-  return buildPitcherProfile(candidate, rankPos);
-}
-
 function getRivalCandidatesPool() {
-  let pool = [...cachedRankingList].filter(item => {
-    return item && item.name && item.name !== state.playerName && item.name !== 'テスト' && item.name !== 'てすと';
-  });
+  const uniqueMap = new Map();
+  for (const item of cachedRankingList) {
+    if (!item || !item.name) continue;
+    const cleanName = item.name.trim();
+    if (cleanName === state.playerName || cleanName === 'テスト' || cleanName === 'てすと') continue;
+    if (!uniqueMap.has(cleanName)) {
+      uniqueMap.set(cleanName, item);
+    } else {
+      const existing = uniqueMap.get(cleanName);
+      const curPts = (Number(item.score) || 0) + (Number(item.homeruns) || 0) * 2;
+      const exPts = (Number(existing.score) || 0) + (Number(existing.homeruns) || 0) * 2;
+      if (curPts > exPts) {
+        uniqueMap.set(cleanName, item);
+      }
+    }
+  }
 
+  let pool = Array.from(uniqueMap.values());
   if (pool.length === 0) {
     pool = [...DEFAULT_RIVAL_PITCHERS];
   }
@@ -1469,6 +1443,13 @@ function getRivalCandidatesPool() {
   });
 
   return pool.map((cand, idx) => buildPitcherProfile(cand, idx + 1));
+}
+
+function selectRivalPitcher() {
+  const pool = getRivalCandidatesPool();
+  // 全員がルーレットの当選対象！（上位だけでなく全プレイヤーから等確率抽選）
+  const chosenProfile = pool[Math.floor(Math.random() * pool.length)];
+  return chosenProfile;
 }
 
 function renderRouletteCard(cardEl, pitcher) {
@@ -1524,9 +1505,16 @@ function startRivalRoulette(targetPitcher, onComplete) {
   const TOTAL_CARDS = 38;
   const cardElements = [];
 
+  // 全員がリールに登場するようにプールをシャッフルして配置
+  const reelCards = [];
+  while (reelCards.length < TOTAL_CARDS) {
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    reelCards.push(...shuffled);
+  }
+
   for (let i = 0; i < TOTAL_CARDS; i++) {
     const cardEl = document.createElement('div');
-    const randomPitcher = pool[Math.floor(Math.random() * pool.length)] || targetPitcher;
+    const randomPitcher = reelCards[i] || targetPitcher;
     renderRouletteCard(cardEl, randomPitcher);
     dom.rouletteReelStrip.appendChild(cardEl);
     cardElements.push(cardEl);
@@ -1722,33 +1710,46 @@ function startRivalRoulette(targetPitcher, onComplete) {
   rouletteAnimId = requestAnimationFrame(animateRoulette);
 }
 
-function calcPitchTrajectory(pitchType, safeProgress, breakDir = 1) {
+function calcPitchTrajectory(pitchType, safeProgress, breakDir = 1, grade = 'C') {
   let offsetX = 0;
   let offsetY = 0;
+  const isS = (grade === 'S');
+  const isTop = (grade === 'S' || grade === 'A');
 
   if (pitchType === 'CURVE') {
     // ドロップカーブ: 上にふわりと浮き上がり、手前で大きく下へ落ちる緩急
     const arc = Math.sin(safeProgress * Math.PI);
-    offsetY = -arc * 44;
-    offsetX = -arc * breakDir * 26;
+    const dropAmp = isTop ? 62 : 44;
+    const breakAmp = isTop ? 38 : 26;
+    offsetY = -arc * dropAmp;
+    offsetX = -arc * breakDir * breakAmp;
   } else if (pitchType === 'SLIDER') {
-    // 鋭角スライダー: 半分までは直球軌道、後半0.42から急激に外/内にキレる
-    if (safeProgress > 0.42) {
-      const breakFactor = Math.pow((safeProgress - 0.42) / 0.58, 1.8);
-      offsetX = breakDir * breakFactor * 42;
-      offsetY = breakFactor * 8;
+    // 鋭角スライダー:
+    // 上位投手は手前まで直球に見え、後半0.48から急激に外/内にカミソリのようにキレる！
+    const breakStart = isTop ? 0.48 : 0.42;
+    if (safeProgress > breakStart) {
+      const breakFactor = Math.pow((safeProgress - breakStart) / (1.0 - breakStart), isTop ? 2.2 : 1.8);
+      const breakAmp = isS ? 68 : (isTop ? 54 : 42);
+      const dropAmp = isTop ? 14 : 8;
+      offsetX = breakDir * breakFactor * breakAmp;
+      offsetY = breakFactor * dropAmp;
     }
   } else if (pitchType === 'FORK') {
-    // 落差フォーク: 直球の軌道から手前0.48以降で急激に真下へストンと落ちる
-    if (safeProgress > 0.48) {
-      const dropFactor = Math.pow((safeProgress - 0.48) / 0.52, 2.0);
-      offsetY = dropFactor * 46;
+    // 落差フォーク:
+    // S/Aランク投手は手前0.50まで直球軌道から手元でストンと84px大急降下！
+    const dropStart = isTop ? 0.50 : 0.48;
+    if (safeProgress > dropStart) {
+      const dropFactor = Math.pow((safeProgress - dropStart) / (1.0 - dropStart), isTop ? 2.4 : 2.0);
+      const dropAmp = isS ? 84 : (isTop ? 64 : 46);
+      offsetY = dropFactor * dropAmp;
     }
   } else if (pitchType === 'FIREBALL') {
-    // 火の玉ストレート: 手元でホップする（浮き上がる）ライジング軌道
-    if (safeProgress > 0.55) {
-      const riseFactor = Math.pow((safeProgress - 0.55) / 0.45, 1.6);
-      offsetY = -riseFactor * 16;
+    // 火の玉ストレート: 手元でホップする（浮き上がる）ライジング軌道！
+    const riseStart = isTop ? 0.50 : 0.55;
+    if (safeProgress > riseStart) {
+      const riseFactor = Math.pow((safeProgress - riseStart) / (1.0 - riseStart), 1.8);
+      const riseAmp = isS ? 28 : 18;
+      offsetY = -riseFactor * riseAmp;
     }
   }
 
@@ -1929,24 +1930,26 @@ function releaseRewardPitch() {
   let pitchLabel = '直球';
 
   if (pitchType === 'FIREBALL') {
-    speed += Math.floor(1 + Math.random() * 3); // 158〜164km/h
+    speed += Math.floor(3 + Math.random() * 5); // Sランクなら166〜172km/hの超剛速球！
     pitchLabel = '⚡ 火の玉ストレート';
   } else if (pitchType === 'SLIDER') {
-    speed -= Math.floor(8 + Math.random() * 5); // -8〜12km/h
+    speed -= Math.floor(6 + Math.random() * 4); // 高速スライダー
     pitchLabel = '🌀 鋭角スライダー';
   } else if (pitchType === 'FORK') {
-    speed -= Math.floor(12 + Math.random() * 5); // -12〜16km/h
-    pitchLabel = '📉 落差フォーク';
+    speed -= Math.floor(10 + Math.random() * 5); // 高速フォーク
+    pitchLabel = '📉 消える魔球フォーク';
   } else if (pitchType === 'CURVE') {
-    speed -= Math.floor(25 + Math.random() * 8); // -25〜32km/h（大きな緩急！）
-    pitchLabel = '🌈 ドロップカーブ';
+    speed -= Math.floor(32 + Math.random() * 8); // -32〜40km/h（強烈な緩急差！）
+    pitchLabel = '🌈 大落差ドロップカーブ';
   } else {
-    speed -= Math.floor(Math.random() * 4);
-    pitchLabel = speed >= 150 ? '🔥 剛速球' : '⚾ ストレート';
+    speed -= Math.floor(Math.random() * 3);
+    pitchLabel = speed >= 152 ? '🔥 剛速球' : '⚾ ストレート';
   }
 
   bBall.speedKmh = Math.max(105, speed);
-  bBall.durationMs = Math.floor((150 / bBall.speedKmh) * 950);
+  // 球速に応じたリアルな体感飛来速度（170km/hなら約520ms、115km/hなら約880ms）
+  const baseDuration = 880 - (bBall.speedKmh - 115) * 6.5;
+  bBall.durationMs = Math.max(450, Math.floor(baseDuration));
   bBall.pitchType = pitchType;
   bBall.pitchLabel = pitchLabel;
   bBall.breakDir = Math.random() > 0.5 ? 1 : -1;
@@ -1956,36 +1959,39 @@ function releaseRewardPitch() {
   bBall.y = pPos.y;
 
   // コントロールとコース（隅を突く技術）
-  // 爽快感のため22%の確率で「ド真ん中甘い絶好球（失投）」が発生！
-  const isMeatball = Math.random() < 0.22;
+  // 上位ランクほど失投（甘い球）が極めて少なく、4隅の極限ラインを突いてくる！
+  const meatballChance = rival.grade === 'S' ? 0.03 : (rival.grade === 'A' ? 0.08 : (rival.grade === 'B' ? 0.18 : (rival.grade === 'C' ? 0.32 : 0.45)));
+  const isMeatball = Math.random() < meatballChance;
   let cornerName = '真ん中';
 
   if (isMeatball) {
     bBall.isMeatball = true;
-    bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.15);
-    bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.15);
+    bBall.targetX = bStrikeZone.x + (Math.random() - 0.5) * (bStrikeZone.w * 0.12);
+    bBall.targetY = bStrikeZone.y + (Math.random() - 0.5) * (bStrikeZone.h * 0.12);
     cornerName = 'ド真ん中絶好球';
   } else if (rival.control === 'PINPOINT' || rival.control === 'CORNER') {
-    // 4隅を突く！
+    const isPinpoint = rival.control === 'PINPOINT';
     const cornerIndex = Math.floor(Math.random() * 4);
-    const padX = bStrikeZone.w * 0.36;
-    const padY = bStrikeZone.h * 0.35;
+    // Sランクはギリギリの極限角（0.46, 0.44）、Aランクは（0.40, 0.38）
+    const padX = bStrikeZone.w * (isPinpoint ? 0.46 : 0.40);
+    const padY = bStrikeZone.h * (isPinpoint ? 0.44 : 0.38);
+
     if (cornerIndex === 0) {
       bBall.targetX = bStrikeZone.x + padX;
       bBall.targetY = bStrikeZone.y + padY;
-      cornerName = '外角低め';
+      cornerName = isPinpoint ? '外角低めいっぱい' : '外角低め';
     } else if (cornerIndex === 1) {
       bBall.targetX = bStrikeZone.x - padX;
       bBall.targetY = bStrikeZone.y - padY;
-      cornerName = '内角高め';
+      cornerName = isPinpoint ? '内角高めズバッ' : '内角高め';
     } else if (cornerIndex === 2) {
       bBall.targetX = bStrikeZone.x - padX;
       bBall.targetY = bStrikeZone.y + padY;
-      cornerName = '内角低め';
+      cornerName = isPinpoint ? '内角低めキワキワ' : '内角低め';
     } else {
       bBall.targetX = bStrikeZone.x + padX;
       bBall.targetY = bStrikeZone.y - padY;
-      cornerName = '外角高め';
+      cornerName = isPinpoint ? '外角高めギリギリ' : '外角高め';
     }
     bBall.isMeatball = false;
   } else {
@@ -2033,31 +2039,69 @@ function executeBattingSwing() {
   const dist = Math.hypot(bBatCursor.x - bBall.x, bBatCursor.y - bBall.y);
   const cursorR = bBatCursor.radius;
   const coreR = 14;
-
   const absTiming = Math.abs(timingDelta);
-  let result = '';
-  let baseFlight = 0;
+  const rival = currentRivalPitcher;
+  const rivalGrade = rival ? rival.grade : 'C';
 
   // パワーボーナス
   const curPower = calcPower(state.totalHomeruns);
   const powerBonus = Math.floor((curPower - 40) * 0.45);
 
   // 早すぎるスイング：ボールは消さずに飛び続けさせ、振り直し可能にする
-  if (timingDelta < -320) {
+  if (timingDelta < -300) {
     bBall.swung = true;
     dom.battingStatusText.textContent = "💨 ちょっと早すぎた！ボールをよく見て打とう！";
     return;
   }
 
-  if (absTiming <= 55 && dist <= coreR) {
+  // 投手ランクに応じた「球威・ノビ・威圧感」判定
+  // 上位ランカーほどスイートスポットとタイミングがシビア！
+  let maxPerfectTiming = 55;
+  let maxPerfectDist = coreR;
+  let maxHrTiming = 95;
+  let maxHrDist = cursorR * 0.75;
+  let maxHitTiming = 145;
+  let maxHitDist = cursorR * 1.15;
+
+  if (rivalGrade === 'S') {
+    maxPerfectTiming = 36;
+    maxPerfectDist = 11;
+    maxHrTiming = 68;
+    maxHrDist = cursorR * 0.58;
+    maxHitTiming = 105;
+    maxHitDist = cursorR * 0.88;
+  } else if (rivalGrade === 'A') {
+    maxPerfectTiming = 42;
+    maxPerfectDist = 12;
+    maxHrTiming = 78;
+    maxHrDist = cursorR * 0.65;
+    maxHitTiming = 120;
+    maxHitDist = cursorR * 0.98;
+  } else if (rivalGrade === 'D') {
+    maxPerfectTiming = 65;
+    maxPerfectDist = coreR * 1.25;
+    maxHrTiming = 115;
+    maxHrDist = cursorR * 0.88;
+    maxHitTiming = 165;
+    maxHitDist = cursorR * 1.25;
+  }
+
+  let result = '';
+  let baseFlight = 0;
+
+  if (absTiming <= maxPerfectTiming && dist <= maxPerfectDist) {
     result = 'PERFECT_HOMERUN';
     baseFlight = Math.floor(142 + Math.random() * 15);
-  } else if (absTiming <= 95 && dist <= cursorR * 0.75) {
+  } else if (absTiming <= maxHrTiming && dist <= maxHrDist) {
     result = 'HOMERUN';
     baseFlight = Math.floor(125 + Math.random() * 14);
-  } else if (absTiming <= 145 && dist <= cursorR * 1.15) {
+  } else if (absTiming <= maxHitTiming && dist <= maxHitDist) {
     result = 'HIT';
     baseFlight = Math.floor(75 + Math.random() * 30);
+  } else if ((rivalGrade === 'S' || rivalGrade === 'A') && absTiming <= 140 && dist <= cursorR * 1.15) {
+    // S/Aランク投手の球威に差し込まれた！詰まり・内野フライ
+    result = 'WEAK_HIT';
+    baseFlight = Math.floor(25 + Math.random() * 25);
   } else {
     result = 'SWING_AND_MISS';
   }
@@ -2082,7 +2126,7 @@ function executeBattingSwing() {
     updateHud();
 
     sounds.playHomerun();
-    startBattingBroadcastTracking(flight, true, result === 'PERFECT_HOMERUN', timingDelta);
+    startBattingBroadcastTracking(flight, true, result === 'PERFECT_HOMERUN', timingDelta, false);
   } else if (result === 'HIT') {
     bBall.hit = true;
     const flash = dom.battingImpactFlash;
@@ -2097,14 +2141,19 @@ function executeBattingSwing() {
     updateHud();
 
     sounds.playHit();
-    startBattingBroadcastTracking(flight, false, false, timingDelta);
+    startBattingBroadcastTracking(flight, false, false, timingDelta, false);
+  } else if (result === 'WEAK_HIT') {
+    bBall.hit = true;
+    sounds.playHit();
+    dom.battingStatusText.textContent = `💥 詰まった！【${rivalGrade}ランク投手の圧倒的球威】に押し負けた！`;
+    startBattingBroadcastTracking(flight, false, false, timingDelta, true);
   } else {
     // 空振り：ボールは消さずにキャッチャーミットまで飛ばす！
-    dom.battingStatusText.textContent = "💨 空振り！どんまい！次の10問でリベンジだ！";
+    dom.battingStatusText.textContent = `💨 空振り！相手投手【${rival ? rival.name : '強敵'}】の${bBall.pitchLabel}にバットが空を切った！`;
   }
 }
 
-function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
+function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta, isWeak = false) {
   bPitchState = 'RESULT';
 
   addBattingTimer(() => {
@@ -2119,9 +2168,11 @@ function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
     const rivalName = currentRivalPitcher ? currentRivalPitcher.name : '相手投手';
     let dir = timingDelta < -10 ? 'レフトへ' : (timingDelta > 10 ? 'ライトへ' : 'バックスクリーンへ');
     if (isPerfect) {
-      tickerText.textContent = `相手エース【${rivalName}】の勝負球を一閃！打った瞬間それと分かる当たり！${dir}ぐんぐん伸びるー！！`;
+      tickerText.textContent = `全国屈指【${rivalName}】の魔球を一閃！完璧に捉えた大飛球が${dir}ぐんぐん伸びるー！！`;
     } else if (isHr) {
-      tickerText.textContent = `難敵【${rivalName}】を打ち砕いた！高々と上がった大飛球！${dir}行ったか！？行ったかー！？`;
+      tickerText.textContent = `難敵【${rivalName}】を打ち砕いた！高々と上がった大飛球！${dir}スタンドへ一直線！！`;
+    } else if (isWeak) {
+      tickerText.textContent = `打ち取られた！相手エース【${rivalName}】の圧倒的球威に差し込まれて力のない打球...`;
     } else {
       tickerText.textContent = `強敵【${rivalName}】の球を捉えた！鋭い打球がグラウンドを抜けて${dir}クリーンヒット！！`;
     }
@@ -2132,7 +2183,7 @@ function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
 
     bTrackingBall.active = true;
     bTrackingBall.startTime = performance.now();
-    bTrackingBall.durationMs = isHr ? (isPerfect ? 2600 : 2300) : 1700;
+    bTrackingBall.durationMs = isHr ? (isPerfect ? 2600 : 2300) : (isWeak ? 1400 : 1700);
     bTrackingBall.isHr = isHr;
     bTrackingBall.isPerfect = isPerfect;
     bTrackingBall.landed = false;
@@ -2144,8 +2195,8 @@ function startBattingBroadcastTracking(dist, isHr, isPerfect, timingDelta) {
 
     const xOffset = (timingDelta < 0 ? -1 : 1) * Math.min(bW * 0.35, Math.abs(timingDelta) * 3);
     bTrackingBall.endX = bW * 0.5 + xOffset;
-    bTrackingBall.endY = isHr ? (bH * 0.28 + (Math.random() - 0.5) * 40) : (bH * 0.65);
-    bTrackingBall.apexY = isHr ? (bH * 0.08) : (bH * 0.45);
+    bTrackingBall.endY = isHr ? (bH * 0.28 + (Math.random() - 0.5) * 40) : (isWeak ? (bH * 0.72) : (bH * 0.65));
+    bTrackingBall.apexY = isHr ? (bH * 0.08) : (isWeak ? (bH * 0.55) : (bH * 0.45));
 
     const totalWait = bTrackingBall.durationMs + (isHr ? 2400 : 1400);
     addBattingTimer(() => {
@@ -2356,8 +2407,13 @@ function updateAndDrawBattingBall(now) {
   const pPos = getBattingPitcherPos();
   const safeProgress = Math.max(0, Math.min(1.25, progress));
 
-  // 球種ごとの変化球物理軌道オフセットを反映
-  const traj = calcPitchTrajectory(bBall.pitchType, safeProgress, bBall.breakDir);
+  // 球種ごとの変化球物理軌道オフセットを反映（投手ランクのキレを注入）
+  const traj = calcPitchTrajectory(
+    bBall.pitchType,
+    safeProgress,
+    bBall.breakDir,
+    currentRivalPitcher ? currentRivalPitcher.grade : 'C'
+  );
   const baseX = pPos.x + (bBall.targetX - pPos.x) * safeProgress;
   const baseY = pPos.y + (bBall.targetY - pPos.y) * safeProgress;
 
@@ -2366,7 +2422,7 @@ function updateAndDrawBattingBall(now) {
 
   const r = Math.max(4, 4 + Math.pow(safeProgress, 2.2) * 26);
 
-  // 火の玉ストレートの炎トレイル生成
+  // 球種ごとの魔球トレイル生成（火の玉・カーブ・フォーク・スライダー）
   if (bBall.pitchType === 'FIREBALL' && Math.random() < 0.75) {
     bPitchTrail.push({
       x: bBall.x + (Math.random() - 0.5) * r * 0.7,
@@ -2387,6 +2443,26 @@ function updateAndDrawBattingBall(now) {
       size: r * 0.45,
       alpha: 0.6,
       decay: 0.04
+    });
+  } else if (bBall.pitchType === 'FORK' && Math.random() < 0.65) {
+    bPitchTrail.push({
+      x: bBall.x + (Math.random() - 0.5) * r * 0.4,
+      y: bBall.y + (Math.random() - 0.5) * r * 0.4,
+      vx: 0, vy: 1.6,
+      color: '#a855f7',
+      size: r * 0.5,
+      alpha: 0.7,
+      decay: 0.05
+    });
+  } else if (bBall.pitchType === 'SLIDER' && Math.random() < 0.6) {
+    bPitchTrail.push({
+      x: bBall.x + (Math.random() - 0.5) * r * 0.4,
+      y: bBall.y + (Math.random() - 0.5) * r * 0.4,
+      vx: -bBall.breakDir * 1.6, vy: 0,
+      color: '#facc15',
+      size: r * 0.45,
+      alpha: 0.65,
+      decay: 0.045
     });
   }
 
